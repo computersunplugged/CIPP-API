@@ -4,21 +4,20 @@ function Invoke-CIPPStandardNinjaCveSync {
         Sync Microsoft Defender TVM vulnerabilities to NinjaOne (CSV upload to a scan group).
     .DESCRIPTION
         Headless Standard run. For the current $TenantFilter (MS Tenant ID):
-          - Resolve Ninja Org ID from CippMapping (PartitionKey 'NinjaOneMapping', property 'IntegrationId')
-          - Resolve Scan Group ID (Standard param > NinjaOneSettings)
-          - Pull Defender TVM device<->CVE rows
+          - Resolve Ninja Org ID from CippMapping (PartitionKey 'NinjaOneMapping', RowKey = <TenantId>) → IntegrationId
+          - Resolve Scan Group ID (prefer Standard parameter; else wire your own table lookup)
+          - Pull Defender TVM device↔CVE rows
           - Map to CSV using chosen device identifier ('hostname'|'ipAddress'|'macAddress')
-          - Upload CSV to NinjaOne /v2/vulnerability/scan-groups/{id}/upload
+          - Upload CSV to NinjaOne /api/v2/vulnerability/scan-groups/{id}/upload
     .PARAMETER Settings
     .PARAMETER Standard
-        Expected optional parameters:
-          - .Parameters.ScanGroupId
-          - .Parameters.DeviceIdentifier   ('hostname'|'ipAddress'|'macAddress')  (defaults to 'hostname')
-          - .Parameters.BaseUri            (defaults to https://api.ninjarmm.com)
+        Optional parameters:
+          - .Parameters.ScanGroupId          (string)
+          - .Parameters.DeviceIdentifier     (hostname|ipAddress|macAddress) default 'hostname'
     .PARAMETER TenantFilter
         Microsoft tenant ID currently being processed.
     .PARAMETER CustomerId
-        CIPP internal customer reference (not required by this script).
+        CIPP internal customer reference (not required here).
     #>
     [CmdletBinding()]
     param(
@@ -28,94 +27,43 @@ function Invoke-CIPPStandardNinjaCveSync {
         $CustomerId
     )
 
-    Write-LogMessage -API 'Standard' -tenant $TenantFilter -message 'Ninja CVE Sync: start' -sev 'Info'
+    Write-LogMessage -API 'Standard' -tenant $TenantFilter -message 'Ninja CVE Sync: start' -Sev 'Info'
 
     try {
-        # ------------------------------
-        # 1) Resolve Ninja Org via CIPP mapping (Azure Table)
-        # ------------------------------
-        $mappingTable = Get-CIPPTable -TableName CippMapping
+        # 1) Configuration (CIPP default pattern)
+        $cfgTable      = Get-CIPPTable -TableName Config
+        $Configuration = ((Get-AzDataTableEntity @cfgTable).config | ConvertFrom-Json).NinjaOne
+        if (-not $Configuration) { throw "NinjaOne configuration not found in Config table." }
+        if (-not $Configuration.Instance) { throw "NinjaOne configuration missing 'Instance' host value." }
 
-        # First try direct RowKey match; if not found, fetch the partition and match by a 'TenantId' property if present
-        $mapEntity = $null
-        try {
-            $mapEntity = Get-AzDataTableEntity @mappingTable -PartitionKey 'NinjaOneMapping' -RowKey $TenantFilter -ErrorAction Stop
-        } catch {
-            # Fallback: pull all NinjaOneMapping rows and match where a TenantId property equals $TenantFilter
-            $allNinjaRows = Get-AzDataTableEntity @mappingTable -Filter "PartitionKey eq 'NinjaOneMapping'"
-            $mapEntity = $allNinjaRows |
-                Where-Object {
-                    $_.PSObject.Properties.Name -contains 'TenantId' -and $_.TenantId -eq $TenantFilter
-                } |
-                Select-Object -First 1
-        }
+        # 2) Tenant → Ninja org mapping (strict RowKey match)
+        $mapTable = Get-CIPPTable -TableName CippMapping
+        $mapRow   = Get-AzDataTableEntity @mapTable -PartitionKey 'NinjaOneMapping' -RowKey $TenantFilter -ErrorAction Stop
+        $ninjaOrgId = $mapRow.IntegrationId
+        if (-not $ninjaOrgId) { throw "No IntegrationId for tenant $TenantFilter in NinjaOneMapping." }
 
-        if (-not $mapEntity -or [string]::IsNullOrWhiteSpace($mapEntity.IntegrationId)) {
-            throw "No Ninja mapping (IntegrationId) found in CippMapping for tenant $TenantFilter."
-        }
-        $ninjaOrgId = $mapEntity.IntegrationId
-
-        # ------------------------------
-        # 2) Resolve Scan Group ID
-        # ------------------------------
+        # 3) Scan Group Id (prefer Standard parameter; else wire your own lookup)
         $scanGroupId = $null
-
-        # 2a) Prefer Standard parameter (if you added a UI component)
         if ($Standard -and $Standard.Parameters -and $Standard.Parameters.ScanGroupId) {
             $scanGroupId = $Standard.Parameters.ScanGroupId
         }
-
-        # 2b) Else read from NinjaOneSettings table keyed by org (PartitionKey 'NinjaConfig', RowKey = org id, property 'ScanGroupId')
         if (-not $scanGroupId) {
-            $settingsTable = Get-CIPPTable -TableName NinjaOneSettings
-            try {
-                $row = Get-AzDataTableEntity @settingsTable -PartitionKey 'NinjaConfig' -RowKey $ninjaOrgId -ErrorAction Stop
-                if ($row -and $row.ScanGroupId) { $scanGroupId = $row.ScanGroupId }
-            } catch {
-                # no row or different storage; fall through
-            }
+            throw "No Ninja Scan Group ID provided. Set 'ScanGroupId' in the standard parameters or implement a table lookup."
         }
 
-        if (-not $scanGroupId) {
-            throw "No Ninja Scan Group ID found. Provide via Standard parameter (ScanGroupId) or store in NinjaOneSettings (org $ninjaOrgId)."
-        }
-
-        # ------------------------------
-        # 3) Get Ninja token (detect real signature; no hard assumptions)
-        # ------------------------------
-        $tokenCmd = Get-Command -Name Get-NinjaOneToken -ErrorAction SilentlyContinue
-        if (-not $tokenCmd) { throw "Get-NinjaOneToken not found in the session." }
-
-        $token = $null
-        if ($tokenCmd.Parameters.ContainsKey('CustomerId')) {
-            $token = Get-NinjaOneToken -CustomerId $CustomerId
-        } elseif ($tokenCmd.Parameters.ContainsKey('TenantFilter')) {
-            $token = Get-NinjaOneToken -TenantFilter $TenantFilter
-        } else {
-            $token = Get-NinjaOneToken
-        }
-        if (-not $token) { throw "Ninja token retrieval returned no result." }
-
-        # ------------------------------
-        # 4) HTTP target and headers
-        # ------------------------------
-        $baseUri = if ($Standard -and $Standard.Parameters -and $Standard.Parameters.BaseUri) {
-            $Standard.Parameters.BaseUri
-        } else {
-            'https://api.ninjarmm.com' # default; override via parameter if your region differs
-        }
+        # 4) Token (repo-accurate signature: -Configuration)
+        $token = Get-NinjaOneToken -Configuration $Configuration
+        if (-not $token -or -not $token.access_token) { throw "Failed to obtain NinjaOne token." }
 
         $headersHttp = @{
             'Authorization' = "Bearer $($token.access_token)"
             'Accept'        = 'application/json'
         }
 
-        # ------------------------------
-        # 5) Pull Defender TVM
-        # ------------------------------
+        # 5) Pull Defender TVM rows
         $rows = Get-DefenderTvmRaw -TenantId $TenantFilter
         if (-not $rows -or $rows.Count -eq 0) {
-            Write-LogMessage -API 'Standard' -tenant $TenantFilter -message 'No TVM rows found; skipping upload' -sev 'Info'
+            Write-LogMessage -API 'Standard' -tenant $TenantFilter -message 'No TVM rows found; skipping upload' -Sev 'Info'
             return [pscustomobject]@{
                 TenantFilter = $TenantFilter
                 StandardName = $Standard.DisplayName
@@ -126,22 +74,23 @@ function Invoke-CIPPStandardNinjaCveSync {
             }
         }
 
-        # ------------------------------
-        # 6) Map to CSV (hostname/ipAddress/macAddress). Default: hostname
-        # ------------------------------
+        # 6) Map to CSV
         $deviceIdentifier = 'hostname'
         if ($Standard -and $Standard.Parameters -and $Standard.Parameters.DeviceIdentifier) {
             $deviceIdentifier = $Standard.Parameters.DeviceIdentifier
         }
+        if (@('hostname','ipAddress','macAddress') -notcontains $deviceIdentifier) {
+            $deviceIdentifier = 'hostname'
+        }
 
         $csvHeaders = @($deviceIdentifier, 'cveId')
-
         $mapped = foreach ($r in $rows) {
+            # Prefer chosen identifier; fall back to deviceName if missing
             $deviceVal = $null
             switch -Exact ($deviceIdentifier) {
                 'hostname'   { $deviceVal = $r.deviceName }
-                'ipAddress'  { $deviceVal = $r.ipAddress }     # include only if present in your TVM payload
-                'macAddress' { $deviceVal = $r.macAddress }    # include only if present in your TVM payload
+                'ipAddress'  { $deviceVal = $r.ipAddress }
+                'macAddress' { $deviceVal = $r.macAddress }
                 default      { $deviceVal = $r.deviceName }
             }
             if ([string]::IsNullOrWhiteSpace($deviceVal)) { $deviceVal = $r.deviceName }
@@ -152,13 +101,10 @@ function Invoke-CIPPStandardNinjaCveSync {
                     cveId             = $r.cveId
                 }
             }
-        }
-
-        # Filter out any nulls
-        $mapped = $mapped | Where-Object { $_ }
+        } | Where-Object { $_ }
 
         if (-not $mapped -or $mapped.Count -eq 0) {
-            Write-LogMessage -API 'Standard' -tenant $TenantFilter -message 'No mappable rows after identifier filtering' -sev 'Warning'
+            Write-LogMessage -API 'Standard' -tenant $TenantFilter -message 'No mappable rows after identifier filtering' -Sev 'Warning'
             return [pscustomobject]@{
                 TenantFilter = $TenantFilter
                 StandardName = $Standard.DisplayName
@@ -169,11 +115,9 @@ function Invoke-CIPPStandardNinjaCveSync {
             }
         }
 
-        # ------------------------------
         # 7) Build CSV + upload
-        # ------------------------------
         $csvBytes = New-VulnCsvBytes -Rows $mapped -Headers $csvHeaders
-        $resp = Invoke-NinjaOneVulnCsvUpload -ScanGroupId $scanGroupId -CsvBytes $csvBytes -BaseUri $baseUri -Headers $headersHttp
+        $resp = Invoke-NinjaOneVulnCsvUpload -Instance $($Configuration.Instance) -ScanGroupId $scanGroupId -CsvBytes $csvBytes -Headers $headersHttp
 
         $processed = if ($resp -and $resp.PSObject.Properties.Name -contains 'recordsProcessed' -and $resp.recordsProcessed) {
             [int]$resp.recordsProcessed
@@ -181,7 +125,7 @@ function Invoke-CIPPStandardNinjaCveSync {
             $mapped.Count
         }
 
-        Write-LogMessage -API 'Standard' -tenant $TenantFilter -message ("Ninja upload complete. RecordsProcessed: {0}" -f $processed) -sev 'Info'
+        Write-LogMessage -API 'Standard' -tenant $TenantFilter -message ("Ninja upload complete. RecordsProcessed: {0}" -f $processed) -Sev 'Info'
 
         return [pscustomobject]@{
             TenantFilter = $TenantFilter
@@ -194,7 +138,7 @@ function Invoke-CIPPStandardNinjaCveSync {
     }
     catch {
         $msg = Get-NormalizedError -Message $_.Exception.Message
-        Write-LogMessage -API 'Standard' -tenant $TenantFilter -message ("Ninja CVE Sync failed: {0}" -f $msg) -sev 'Error'
+        Write-LogMessage -API 'Standard' -tenant $TenantFilter -message ("Ninja CVE Sync failed: {0}" -f $msg) -Sev 'Error'
         return [pscustomobject]@{
             TenantFilter = $TenantFilter
             StandardName = $Standard.DisplayName
