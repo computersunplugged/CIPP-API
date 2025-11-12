@@ -5041,19 +5041,16 @@
     "recommendedBy": ["CIS", "CIPP"]
   },
   {
-  "Name": "Ninja CVE Sync",
-  "Id": "NinjaCveSync",
-  "Category": "Security & Compliance",
-  "Description": "Uploads Microsoft Defender TVM vulnerabilities to the configured NinjaOne scan group for each tenant.",
-  "Script": "Invoke-CIPPStandardNinjaCveSync",
-  "EnabledByDefault": false,
-  "Parameters": {
-    "ScanGroupId": "",
-    "DeviceIdentifier": "hostname",
-    "SeverityMin": "Medium",
-    "IncludeCvss": true,
-    "IncludeSeverity": true,
-    "IncludeFirstLastSeen": false
-  }
+  "name": "standards.NinjaCveSync",
+  "cat": "Defender Standards",
+  "tag": ["Security"],
+  "helpText": "Uploads Microsoft Defender TVM vulnerabilities to a NinjaOne vulnerability scan group for each tenant on the regular standards cadence.",
+  "docsDescription": "This standard fetches Defender Threat & Vulnerability Management (TVM) device-CVE data per tenant and uploads it to a configured NinjaOne scan group via the official CSV upload endpoint. Use this to centralize CVE visibility and remediation tracking in NinjaOne.",
+  "executiveText": "Keeps NinjaOne updated with the latest CVEs detected by Microsoft Defender, so remediation can be prioritized and tracked in one place.",
+  "label": "Sync Defender CVEs to NinjaOne",
+  "impact": "Low Impact",
+  "impactColour": "info",
+  "addedDate": "2025-11-12",
+  "recommendedBy": ["CIPP"]
 }
 ]
