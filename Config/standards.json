@@ -5039,5 +5039,21 @@
     "addedDate": "2025-06-19",
     "powershellEquivalent": "Set-User -Identity $user -RemotePowerShellEnabled $false",
     "recommendedBy": ["CIS", "CIPP"]
+  },
+  {
+  "Name": "Ninja CVE Sync",
+  "Id": "NinjaCveSync",
+  "Category": "Security & Compliance",
+  "Description": "Uploads Microsoft Defender TVM vulnerabilities to the configured NinjaOne scan group for each tenant.",
+  "Script": "Invoke-CIPPStandardNinjaCveSync",
+  "EnabledByDefault": false,
+  "Parameters": {
+    "ScanGroupId": "",
+    "DeviceIdentifier": "hostname",
+    "SeverityMin": "Medium",
+    "IncludeCvss": true,
+    "IncludeSeverity": true,
+    "IncludeFirstLastSeen": false
   }
+}
 ]
