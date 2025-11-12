@@ -1,65 +1,60 @@
 function Invoke-NinjaOneVulnCsvUpload {
     <#
     .SYNOPSIS
-        Upload a CSV to a NinjaOne vulnerability scan group.
+        Upload a CVE CSV to an existing NinjaOne vulnerability scan group.
     .DESCRIPTION
-        Wraps POST /v2/vulnerability/scan-groups/{scan-group-id}/upload (multipart/form-data).
-        Accepts either prebuilt $Headers/$BaseUri from your existing NinjaOne helpers
-        or lets the caller supply them directly.
+        Forms a multipart/form-data request with part name 'file' and posts to:
+          https://<Instance>/api/v2/vulnerability/scan-groups/{scanGroupId}/upload
+    .PARAMETER Instance
+        NinjaOne API host (e.g., 'api.ninjarmm.com'). Taken from $Configuration.Instance in CIPP.
     .PARAMETER ScanGroupId
-        Target scan group ID (integer-as-string is fine).
+        Target scan group id.
     .PARAMETER CsvBytes
-        Byte[] of the CSV file content (UTF-8 without BOM recommended).
-    .PARAMETER BaseUri
-        Base API URI for NinjaOne (e.g., https://api.ninjaone.com or your region base).
+        UTF-8 byte[] of the CSV payload.
     .PARAMETER Headers
-        Hashtable of HTTP headers (must include Authorization and Content-Type will be set here).
+        Hashtable of HTTP headers; must include Authorization: Bearer <token>.
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)] [string] $ScanGroupId,
-        [Parameter(Mandatory)] [byte[]] $CsvBytes,
-        [Parameter(Mandatory)] [string] $BaseUri,
-        [Parameter(Mandatory)] [hashtable] $Headers
+        [Parameter(Mandatory)][string]$Instance,
+        [Parameter(Mandatory)][string]$ScanGroupId,
+        [Parameter(Mandatory)][byte[]]$CsvBytes,
+        [Parameter(Mandatory)][hashtable]$Headers
     )
 
-    # Build multipart body
     $boundary = [System.Guid]::NewGuid().ToString()
-    $nl       = "`r`n"
-    $stream   = New-Object System.IO.MemoryStream
-    $writer   = New-Object System.IO.StreamWriter($stream, [System.Text.Encoding]::UTF8)
+    $nl = "`r`n"
+    $mem = New-Object System.IO.MemoryStream
+    $wr  = New-Object System.IO.StreamWriter($mem, [System.Text.Encoding]::UTF8)
 
     try {
-        $writer.Write("--$boundary$nl")
-        $writer.Write("Content-Disposition: form-data; name=`"file`"; filename=`"cve.csv`"$nl")
-        $writer.Write("Content-Type: text/csv$nl$nl")
-        $writer.Flush()
-        $stream.Write($CsvBytes, 0, $CsvBytes.Length)
-        $writer.Write("$nl--$boundary--$nl")
-        $writer.Flush()
-        $stream.Position = 0
+        # Part header
+        $wr.Write("--$boundary$nl")
+        $wr.Write("Content-Disposition: form-data; name="file"; filename="cve.csv"$nl")
+        $wr.Write("Content-Type: text/csv$nl$nl")
+        $wr.Flush()
 
-        $uri = "$BaseUri/v2/vulnerability/scan-groups/$ScanGroupId/upload"
+        # CSV content
+        $mem.Write($CsvBytes, 0, $CsvBytes.Length)
 
-        # Clone headers so we can safely set content-type
-        $reqHeaders = @{}
-        foreach ($k in $Headers.Keys) { $reqHeaders[$k] = $Headers[$k] }
+        # Trailer
+        $wr.Write("$nl--$boundary--$nl")
+        $wr.Flush()
+        $mem.Position = 0
 
+        $uri = "https://{0}/api/v2/vulnerability/scan-groups/{1}/upload" -f $Instance, $ScanGroupId
         $contentType = "multipart/form-data; boundary=$boundary"
 
-        Write-LogMessage -API 'NinjaOne' -message "Uploading CSV to scan-group $ScanGroupId" -sev 'Info'
-        $resp = Invoke-RestMethod -Method Post -Uri $uri -Headers $reqHeaders -ContentType $contentType -Body $stream
-
-        Write-LogMessage -API 'NinjaOne' -message ("Upload accepted. Status: {0}; RecordsProcessed: {1}" -f $resp.status, $resp.recordsProcessed) -sev 'Info'
+        Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to scan-group $ScanGroupId at $Instance" -Sev 'Info'
+        $resp = Invoke-RestMethod -Method POST -Uri $uri -Headers $Headers -ContentType $contentType -Body $mem
         return $resp
     }
     catch {
-        $msg = Get-NormalizedError -Message $_.Exception.Message
-        Write-LogMessage -API 'NinjaOne' -message "CSV upload failed for scan-group $ScanGroupId: $msg" -sev 'Error'
+        Write-LogMessage -API 'NinjaOne' -message ("CSV upload failed: {0}" -f $_.Exception.Message) -Sev 'Error'
         throw
     }
     finally {
-        if ($writer) { $writer.Dispose() }
-        if ($stream) { $stream.Dispose() }
+        $wr.Dispose()
+        $mem.Dispose()
     }
 }
