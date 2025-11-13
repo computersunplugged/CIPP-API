@@ -101,7 +101,7 @@ function Invoke-CIPPStandardNinjaCveSync {
                     cveId             = $r.cveId
                 }
             }
-        } | Where-Object { $_ }
+        }
 
         if (-not $mapped -or $mapped.Count -eq 0) {
             Write-LogMessage -API 'Standard' -tenant $TenantFilter -message 'No mappable rows after identifier filtering' -Sev 'Warning'
@@ -149,3 +149,4 @@ function Invoke-CIPPStandardNinjaCveSync {
         }
     }
 }
+
