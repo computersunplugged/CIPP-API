@@ -10,16 +10,21 @@ on:
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.' # set this to the path to your web app project, defaults to the repository root
+  # Path to the zip package we will create
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'cipp-api.zip'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 'Checkout GitHub Action'
         uses: actions/checkout@v4
-      
+
+      - name: 'Archive functions app into zip'
+        run: |
+          zip -r ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }} .
+
       - name: 'Run Azure Functions Action'
         uses: Azure/functions-action@v1
         id: fa
