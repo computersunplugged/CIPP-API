@@ -32,8 +32,8 @@ function Invoke-CIPPStandardNinjaCveSync {
 
     param(
         $Tenant,
-        $Settings,
-		$Configuration
+        $Settings
+        # $Configuration  # Not needed; we pull from Extensionsconfig instead
     )
 
     Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Starting Ninja CVE Sync standard" -Sev 'Info'
@@ -95,14 +95,21 @@ function Invoke-CIPPStandardNinjaCveSync {
         $CsvBytes   = [System.Text.Encoding]::UTF8.GetBytes($CsvContent)
 
         # ============================
-        # 4. GET NINJA TOKEN
+        # 4. GET NINJA CONFIG + TOKEN
         # ============================
 
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieving NinjaOne configuration" -Sev 'Debug'
+
+        $Table        = Get-CIPPTable -TableName 'Extensionsconfig'
+        $ExtConfig    = Get-CIPPAzDataTableEntity @Table
+        $Configuration = ($ExtConfig.config | ConvertFrom-Json).NinjaOne
+
+        if (-not $Configuration -or [string]::IsNullOrWhiteSpace($Configuration.Instance)) {
+            throw "NinjaOne configuration not found or instance name is missing in Extensionsconfig."
+        }
+
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieving NinjaOne API token" -Sev 'Debug'
-		
-		$Configuration = ((Get-CIPPAzDataTableEntity @Table).config | ConvertFrom-Json).NinjaOne
         $TokenObject = Get-NinjaOneToken -configuration $Configuration
-		
 
         if (-not $TokenObject.access_token) {
             throw "Failed to retrieve NinjaOne access token"
@@ -116,13 +123,19 @@ function Invoke-CIPPStandardNinjaCveSync {
         # 5. UPLOAD FILE TO NINJAONE
         # ============================
 
+        # Per NinjaOne public API: https://<instance>/api/v2/vulnerability/scan-groups/{id}/upload
         $UploadUri = "https://$($Configuration.Instance)/api/v2/vulnerability/scan-groups/$ScanGroupId/upload"
-		
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroup: $ScanGroupId)" -Sev 'Info'
 
-        $Response = Invoke-RestMethod -Method Post -Uri $UploadUri -Headers $Headers -ContentType "multipart/form-data" -Form @{
-            file = [System.IO.MemoryStream]::new($CsvBytes)
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroup: $ScanGroupId, Instance: $($Configuration.Instance))" -Sev 'Info'
+
+        # Use a MemoryStream as the "csv" file field; do NOT override ContentType when using -Form
+        $CsvStream = [System.IO.MemoryStream]::new($CsvBytes)
+
+        $Form = @{
+            csv = $CsvStream
         }
+
+        $Response = Invoke-RestMethod -Method Post -Uri $UploadUri -Headers $Headers -Form $Form
 
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Upload complete. NinjaOne response: $($Response.status)" -Sev 'Info'
 
