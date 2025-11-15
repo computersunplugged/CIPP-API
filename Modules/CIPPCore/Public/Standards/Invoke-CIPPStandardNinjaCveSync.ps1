@@ -30,10 +30,10 @@ function Invoke-CIPPStandardNinjaCveSync {
             Run Tools\Update-StandardsComments.ps1 after editing this header.
     #>
 
+    [CmdletBinding()]
     param(
         $Tenant,
         $Settings
-        # $Configuration  # Not needed; we pull from Extensionsconfig instead
     )
 
     Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Starting Ninja CVE Sync standard" -Sev 'Info'
@@ -53,6 +53,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         # ============================
         # 2. QUERY DEFENDER TVM
         # ============================
+
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Pulling Defender TVM data" -Sev 'Debug'
 
         $Vulns = New-GraphGetRequest `
@@ -68,12 +69,14 @@ function Invoke-CIPPStandardNinjaCveSync {
         # ============================
         # 3. GROUP + FORMAT FOR CSV
         # ============================
+
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Transforming CVE data into Ninja CSV format" -Sev 'Debug'
 
         $CsvRows = @()
 
         foreach ($item in $Vulns) {
             if (-not $item.cveId) { continue }
+            if (-not $item.deviceName) { continue }
 
             $CsvRows += [PSCustomObject]@{
                 deviceIdentifier = $item.deviceName
@@ -83,7 +86,7 @@ function Invoke-CIPPStandardNinjaCveSync {
 
         if ($CsvRows.Count -eq 0) {
             Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "No CVEs found to upload for this tenant" -Sev 'Info'
-            
+
             if ($Settings.report) {
                 Set-CIPPStandardsCompareField -FieldName 'standards.NinjaCveSync' -FieldValue "No CVEs detected" -TenantFilter $Tenant
             }
@@ -95,24 +98,45 @@ function Invoke-CIPPStandardNinjaCveSync {
         $CsvBytes   = [System.Text.Encoding]::UTF8.GetBytes($CsvContent)
 
         # ============================
-        # 4. GET NINJA CONFIG + TOKEN
+        # 4. LOAD NINJA CONFIG
+        #    (same pattern as Invoke-NinjaOneTenantSync)
         # ============================
 
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieving NinjaOne configuration" -Sev 'Debug'
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Loading NinjaOne configuration from Extensionsconfig" -Sev 'Debug'
 
-        $Table        = Get-CIPPTable -TableName 'Extensionsconfig'
-        $ExtConfig    = Get-CIPPAzDataTableEntity @Table
-        $Configuration = ($ExtConfig.config | ConvertFrom-Json).NinjaOne
+        $ExtensionsConfigTable = Get-CIPPTable -TableName Extensionsconfig
+        $ExtConfigEntities     = Get-CIPPAzDataTableEntity @ExtensionsConfigTable
 
-        if (-not $Configuration -or [string]::IsNullOrWhiteSpace($Configuration.Instance)) {
-            throw "NinjaOne configuration not found or instance name is missing in Extensionsconfig."
+        if (-not $ExtConfigEntities) {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "No Extensionsconfig entries found – NinjaOne integration not configured." -Sev 'Error'
+            throw "NinjaOne integration is not configured in Extensionsconfig."
         }
 
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieving NinjaOne API token" -Sev 'Debug'
-        $TokenObject = Get-NinjaOneToken -configuration $Configuration
+        # 'config' is JSON; .NinjaOne matches the structure used elsewhere in CIPP
+        $NinjaConfigJson = $ExtConfigEntities.config | Select-Object -First 1
+        if (-not $NinjaConfigJson) {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Extensionsconfig exists but NinjaOne config is missing." -Sev 'Error'
+            throw "NinjaOne configuration missing from Extensionsconfig."
+        }
 
-        if (-not $TokenObject.access_token) {
-            throw "Failed to retrieve NinjaOne access token"
+        $Configuration = ($NinjaConfigJson | ConvertFrom-Json).NinjaOne
+
+        if (-not $Configuration.Instance) {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "NinjaOne config does not contain Instance." -Sev 'Error'
+            throw "NinjaOne Instance is not configured."
+        }
+
+        # ============================
+        # 5. GET NINJA TOKEN
+        # ============================
+
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieving NinjaOne API token for instance $($Configuration.Instance)" -Sev 'Debug'
+
+        $TokenObject = Get-NinjaOneToken -Configuration $Configuration
+
+        if (-not $TokenObject -or -not $TokenObject.access_token) {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Failed to retrieve NinjaOne access token." -Sev 'Error'
+            throw "Failed to retrieve NinjaOne access token. Check NinjaOne extension configuration."
         }
 
         $Headers = @{
@@ -120,41 +144,40 @@ function Invoke-CIPPStandardNinjaCveSync {
         }
 
         # ============================
-        # 5. UPLOAD FILE TO NINJAONE
+        # 6. UPLOAD FILE TO NINJAONE
         # ============================
 
-        # Per NinjaOne public API: https://<instance>/api/v2/vulnerability/scan-groups/{id}/upload
-        $UploadUri = "https://$($Configuration.Instance)/api/v2/vulnerability/scan-groups/$ScanGroupId/upload"
+        # Follow same host usage as other Ninja integrations
+        $UploadHost = $Configuration.Instance -replace '/ws',''
+        $UploadUri  = "https://$UploadHost/api/v2/vulnerability/scan-groups/$ScanGroupId/upload"
 
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroup: $ScanGroupId, Instance: $($Configuration.Instance))" -Sev 'Info'
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (Host: $UploadHost, ScanGroup: $ScanGroupId)" -Sev 'Info'
 
-        # Use a MemoryStream as the "csv" file field; do NOT override ContentType when using -Form
-        $CsvStream = [System.IO.MemoryStream]::new($CsvBytes)
-
-        $Form = @{
-            csv = $CsvStream
+        $Response = Invoke-RestMethod -Method Post -Uri $UploadUri -Headers $Headers -ContentType "multipart/form-data" -Form @{
+            file = [System.IO.MemoryStream]::new($CsvBytes)
         }
-
-        $Response = Invoke-RestMethod -Method Post -Uri $UploadUri -Headers $Headers -Form $Form
 
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Upload complete. NinjaOne response: $($Response.status)" -Sev 'Info'
 
         # ============================
-        # 6. REPORT MODE
+        # 7. REPORT / ALERT
         # ============================
+
         if ($Settings.report) {
             Set-CIPPStandardsCompareField -FieldName "standards.NinjaCveSync" -FieldValue "Uploaded $($CsvRows.Count) CVEs" -TenantFilter $Tenant
         }
 
-        # ============================
-        # 7. ALERT MODE
-        # ============================
         if ($Settings.alert) {
-            Write-StandardsAlert -message "Uploaded $($CsvRows.Count) CVEs to NinjaOne scan group $ScanGroupId" -tenant $Tenant -standardName 'NinjaCveSync' -standardId $Settings.standardId
+            Write-StandardsAlert -message "Uploaded $($CsvRows.Count) CVEs to NinjaOne scan group $ScanGroupId on $UploadHost" -tenant $Tenant -standardName 'NinjaCveSync' -standardId $Settings.standardId
         }
 
     } catch {
-        $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message
+        $ErrorMessage = if ($_.ErrorDetails.Message) {
+            Get-NormalizedError -Message $_.ErrorDetails.Message
+        } else {
+            Get-NormalizedError -Message $_.Exception.Message
+        }
+
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Ninja CVE Sync failed: $ErrorMessage" -Sev 'Error'
         throw $ErrorMessage
     }
