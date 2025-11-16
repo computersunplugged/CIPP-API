@@ -189,6 +189,16 @@ function Invoke-CIPPStandardNinjaCveSync {
         
         Write-LogMessage - 'NinjaCveSync' -tenant $Tenant -message "Generated CSV payload: $($CsvBytes.Length) bytes" -Sev 'Debug'
 
+        # Preview first 20 lines of the CSV
+        try {
+            $CsvText = [System.Text.Encoding]::UTF8.GetString($CsvBytes)
+            $Preview = ($CsvText -split "`n")[0..([Math]::Min(20, ($CsvText -split "`n").Count - 1))]
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -Sev 'Debug' -message ("CSV Preview:`n" + ($Preview -join "`n"))
+        }
+        catch {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -Sev 'Warning' -message "CSV preview failed: $($_.Exception.Message)"
+        }
+
         # ============================
         # 7. UPLOAD TO NINJAONE (using helper function)
         # ============================
@@ -246,4 +256,5 @@ function Invoke-CIPPStandardNinjaCveSync {
         throw $ErrorMessage
     }
 }
+
 
