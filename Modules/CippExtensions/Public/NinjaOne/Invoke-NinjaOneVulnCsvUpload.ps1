@@ -1,60 +1,305 @@
-function Invoke-NinjaOneVulnCsvUpload {
+function Invoke-CIPPStandardNinjaCveSync {
     <#
+    .FUNCTIONALITY
+        Entrypoint
+    .COMPONENT
+        (APIName) NinjaCveSync
     .SYNOPSIS
-        Upload a CVE CSV to an existing NinjaOne vulnerability scan group.
+        (Label) Sync Defender CVEs to NinjaOne
     .DESCRIPTION
-        Forms a multipart/form-data request with part name 'file' and posts to:
-          https://<Instance>/api/v2/vulnerability/scan-groups/{scanGroupId}/upload
-    .PARAMETER Instance
-        NinjaOne API host (e.g., 'api.ninjarmm.com'). Taken from $Configuration.Instance in CIPP.
-    .PARAMETER ScanGroupId
-        Target scan group id.
-    .PARAMETER CsvBytes
-        UTF-8 byte[] of the CSV payload.
-    .PARAMETER Headers
-        Hashtable of HTTP headers; must include Authorization: Bearer <token>.
+        (Helptext) Pulls Defender TVM vulnerabilities for each tenant and uploads them to a specified NinjaOne Scan Group.
+        (DocsDescription) This standard queries Microsoft Defender Threat & Vulnerability Management (TVM) for all software vulnerabilities affecting devices in the tenant. Results are converted into a NinjaOne-compatible CSV and uploaded to the configured NinjaOne Scan Group.
+    .NOTES
+        CAT
+            Global Standards
+        TAG
+            Security
+        DISABLEDFEATURES
+            {"report":true,"warn":true,"remediate":true}
+        EXECUTIVETEXT
+            Automatically synchronizes Microsoft Defender vulnerabilities into NinjaOne for unified alerting and remediation workflows, ensuring your RMM platform always reflects the real security posture of your clients.
+        ADDEDCOMPONENT
+            {"type":"textField","name":"standards.NinjaCveSync.ScanGroupId","label":"NinjaOne Scan Group ID","required":true}
+        IMPACT
+            Medium Impact
+        ADDEDDATE
+            2025-01-22
+        RECOMMENDEDBY
+            ["CIPP"]
+        UPDATECOMMENTBLOCK
+            Run Tools\Update-StandardsComments.ps1 after editing this header.
     #>
-    [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$Instance,
-        [Parameter(Mandatory)][string]$ScanGroupId,
-        [Parameter(Mandatory)][byte[]]$CsvBytes,
-        [Parameter(Mandatory)][hashtable]$Headers
+        $Tenant,
+        $Settings
     )
 
-    $boundary = [System.Guid]::NewGuid().ToString()
-    $nl = "`r`n"
-    $mem = New-Object System.IO.MemoryStream
-    $wr  = New-Object System.IO.StreamWriter($mem, [System.Text.Encoding]::UTF8)
+    Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Starting Ninja CVE Sync standard" -Sev 'Info'
 
+    # ============================
+    # 1. VALIDATE INPUTS & GET CONFIG
+    # ============================
+    $ScanGroupInput = $Settings.ScanGroupId
+    if ([string]::IsNullOrWhiteSpace($ScanGroupInput)) {
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "No Scan Group ID/name provided in standard settings" -Sev 'Error'
+        throw "Scan Group ID (or name) must be configured in the Standard settings."
+    }
+
+    # Get NinjaOne configuration from Azure Table Storage
     try {
-        # Part header
-        $wr.Write("--$boundary$nl")
-        $wr.Write("Content-Disposition: form-data; name="file"; filename="cve.csv"$nl")
-        $wr.Write("Content-Type: text/csv$nl$nl")
-        $wr.Flush()
-
-        # CSV content
-        $mem.Write($CsvBytes, 0, $CsvBytes.Length)
-
-        # Trailer
-        $wr.Write("$nl--$boundary--$nl")
-        $wr.Flush()
-        $mem.Position = 0
-
-        $uri = "https://{0}/api/v2/vulnerability/scan-groups/{1}/upload" -f $Instance, $ScanGroupId
-        $contentType = "multipart/form-data; boundary=$boundary"
-
-        Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to scan-group $ScanGroupId at $Instance" -Sev 'Info'
-        $resp = Invoke-RestMethod -Method POST -Uri $uri -Headers $Headers -ContentType $contentType -Body $mem
-        return $resp
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieving NinjaOne configuration from Extensions table" -Sev 'Debug'
+        $Table = Get-CIPPTable -TableName Extensionsconfig
+        $ConfigEntity = Get-AzDataTableEntity @Table
+        
+        if (-not $ConfigEntity -or -not $ConfigEntity.config) {
+            throw "No configuration found in Extensionsconfig table"
+        }
+        
+        $Configuration = ($ConfigEntity.config | ConvertFrom-Json).NinjaOne
+        
+        if (-not $Configuration -or -not $Configuration.Instance) {
+            throw "NinjaOne configuration is missing or incomplete"
+        }
+        
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieved NinjaOne config for instance: $($Configuration.Instance)" -Sev 'Debug'
     }
     catch {
-        Write-LogMessage -API 'NinjaOne' -message ("CSV upload failed: {0}" -f $_.Exception.Message) -Sev 'Error'
-        throw
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Failed to retrieve NinjaOne configuration: $($_.Exception.Message)" -Sev 'Error'
+        throw "Failed to retrieve NinjaOne configuration: $($_.Exception.Message)"
     }
-    finally {
-        $wr.Dispose()
-        $mem.Dispose()
+
+    try {
+        # ============================
+        # 2. QUERY DEFENDER TVM WITH PAGINATION
+        # ============================
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Pulling Defender TVM data" -Sev 'Debug'
+        
+        $AllVulns = @()
+        $NextLink = "https://api.securitycenter.microsoft.com/api/machines/SoftwareVulnerabilitiesByMachine?`$top=999"
+        $PageCount = 0
+        
+        do {
+            $PageCount++
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Fetching TVM page $PageCount" -Sev 'Debug'
+            
+            $Response = New-GraphGetRequest `
+                -tenantid $Tenant `
+                -uri $NextLink `
+                -scope "https://api.securitycenter.microsoft.com/.default" `
+                -noPagination $true
+            
+            # Handle both direct array and wrapped response
+            if ($Response.value) {
+                $AllVulns += $Response.value
+                $NextLink = $Response.'@odata.nextLink'
+            }
+            else {
+                $AllVulns += $Response
+                $NextLink = $null
+            }
+            
+            # Safety limit to prevent infinite loops
+            if ($PageCount -gt 100) {
+                Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Reached maximum page limit (100), stopping pagination" -Sev 'Warning'
+                break
+            }
+        } while ($NextLink)
+
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieved $($AllVulns.Count) vulnerabilities from Defender TVM across $PageCount page(s)" -Sev 'Info'
+
+        # ============================
+        # 3. GET NINJA TOKEN WITH CONFIG
+        # ============================
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Retrieving NinjaOne API token" -Sev 'Debug'
+        
+        $Token = Get-NinjaOneToken -configuration $Configuration
+        
+        if (-not $Token -or -not $Token.access_token) {
+            throw "Failed to retrieve NinjaOne access token"
+        }
+        
+        $Headers = @{
+            "Authorization" = "Bearer $($Token.access_token)"
+        }
+        
+        # Build base API URL from configuration
+        $NinjaBaseUrl = "https://$($Configuration.Instance)/api/v2"
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Using NinjaOne API base: $NinjaBaseUrl" -Sev 'Debug'
+
+        # ============================
+        # 4. RESOLVE SCAN GROUP ID
+        # ============================
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Fetching scan groups from NinjaOne to resolve '$ScanGroupInput'" -Sev 'Debug'
+        
+        $ScanGroupsUri = "$NinjaBaseUrl/vulnerability/scan-groups"
+        
+        try {
+            $ScanGroups = Invoke-RestMethod -Method Get -Uri $ScanGroupsUri -Headers $Headers -TimeoutSec 30
+        }
+        catch {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Failed to retrieve scan groups: $($_.Exception.Message)" -Sev 'Error'
+            throw "Failed to retrieve scan groups from NinjaOne: $($_.Exception.Message)"
+        }
+
+        if (-not $ScanGroups) {
+            throw "Failed to retrieve scan groups from NinjaOne. Response was empty."
+        }
+
+        # If input is all digits, treat as ID; otherwise treat as groupName
+        $ResolvedScanGroup = $null
+        if ($ScanGroupInput -match '^\d+$') {
+            # Numeric → ID
+            $ResolvedScanGroup = $ScanGroups | Where-Object { $_.id -eq [int]$ScanGroupInput }
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "ScanGroup input '$ScanGroupInput' treated as ID" -Sev 'Debug'
+        }
+        else {
+            # Non-numeric → name
+            $ResolvedScanGroup = $ScanGroups | Where-Object { $_.groupName -eq $ScanGroupInput }
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "ScanGroup input '$ScanGroupInput' treated as groupName" -Sev 'Debug'
+        }
+
+        if (-not $ResolvedScanGroup) {
+            $Available = ($ScanGroups | Select-Object -First 10 | ForEach-Object { "$($_.id):$($_.groupName)" }) -join ', '
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Unable to resolve scan group '$ScanGroupInput'. First few available: $Available" -Sev 'Error'
+            throw "Scan group '$ScanGroupInput' could not be resolved by ID or groupName."
+        }
+
+        $ResolvedScanGroupId = $ResolvedScanGroup.id
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Resolved scan group '$ScanGroupInput' to ID $ResolvedScanGroupId (name: $($ResolvedScanGroup.groupName))" -Sev 'Info'
+
+        # ============================
+        # 5. GROUP + FORMAT FOR CSV (Enhanced validation)
+        # ============================
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Transforming CVE data into Ninja CSV format" -Sev 'Debug'
+        $CsvRows = @()
+        $SkippedCount = 0
+
+        foreach ($item in $AllVulns) {
+            # Enhanced validation
+            if ([string]::IsNullOrWhiteSpace($item.cveId) -or [string]::IsNullOrWhiteSpace($item.deviceName)) {
+                $SkippedCount++
+                continue
+            }
+            
+            $CsvRows += [PSCustomObject]@{
+                deviceIdentifier = $item.deviceName.Trim()
+                cveId            = $item.cveId.Trim()
+            }
+        }
+
+        if ($SkippedCount -gt 0) {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Skipped $SkippedCount vulnerabilities due to missing deviceName or cveId" -Sev 'Warning'
+        }
+
+        if ($CsvRows.Count -eq 0) {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "No valid CVEs found to upload for this tenant" -Sev 'Info'
+            
+            if ($Settings.report) {
+                Set-CIPPStandardsCompareField -FieldName 'standards.NinjaCveSync' -FieldValue "No valid CVEs detected" -TenantFilter $Tenant
+            }
+            return
+        }
+
+        # Build CSV in memory
+        $CsvContent = $CsvRows | ConvertTo-Csv -NoTypeInformation | Out-String
+        
+        # Validate CSV content
+        if ([string]::IsNullOrWhiteSpace($CsvContent) -or $CsvContent.Length -lt 50) {
+            throw "Generated CSV content appears to be invalid or too short"
+        }
+
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Generated CSV with $($CsvRows.Count) rows, content size: $($CsvContent.Length) characters" -Sev 'Debug'
+
+        # ============================
+        # 6. UPLOAD FILE TO NINJAONE (proper multipart/form-data)
+        # ============================
+        $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId/upload"
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroupId: $ResolvedScanGroupId, Uri: $UploadUri)" -Sev 'Info'
+
+        try {
+            # Create proper multipart form data
+            $Boundary = [System.Guid]::NewGuid().ToString()
+            $LF = "`r`n"
+            
+            $BodyLines = @(
+                "--$Boundary",
+                "Content-Disposition: form-data; name=`"file`"; filename=`"cves.csv`"",
+                "Content-Type: text/csv$LF",
+                $CsvContent,
+                "--$Boundary--$LF"
+            )
+            
+            $Body = $BodyLines -join $LF
+            
+            $Response = Invoke-RestMethod `
+                -Method Post `
+                -Uri $UploadUri `
+                -Headers $Headers `
+                -ContentType "multipart/form-data; boundary=$Boundary" `
+                -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) `
+                -TimeoutSec 60
+            
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Upload completed successfully" -Sev 'Info'
+            
+            # Enhanced response validation
+            if ($Response) {
+                Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "NinjaOne response: $($Response | ConvertTo-Json -Compress)" -Sev 'Debug'
+                
+                # Check for common response patterns
+                if ($Response.status -and $Response.status -ne "success") {
+                    Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Upload may have issues. Response status: $($Response.status)" -Sev 'Warning'
+                }
+            }
+        }
+        catch [Microsoft.PowerShell.Commands.HttpResponseException] {
+            # Enhanced HTTP error handling
+            $StatusCode = $_.Exception.Response.StatusCode.value__
+            $ReasonPhrase = $_.Exception.Response.ReasonPhrase
+            
+            # Try to get response content
+            $ErrorContent = ""
+            if ($_.Exception.Response.Content) {
+                try {
+                    $ErrorContent = $_.Exception.Response.Content | ConvertFrom-Json | ConvertTo-Json -Compress
+                }
+                catch {
+                    $ErrorContent = $_.Exception.Response.Content.ToString()
+                }
+            }
+            
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Upload failed with HTTP $StatusCode ($ReasonPhrase). Content: $ErrorContent" -Sev 'Error'
+            throw "NinjaOne upload failed: HTTP $StatusCode - $ReasonPhrase"
+        }
+        catch {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Upload failed with error: $($_.Exception.Message)" -Sev 'Error'
+            throw "NinjaOne upload failed: $($_.Exception.Message)"
+        }
+
+        # ============================
+        # 7. REPORT MODE
+        # ============================
+        if ($Settings.report) {
+            $ReportMessage = "Uploaded $($CsvRows.Count) CVEs to scan group '$($ResolvedScanGroup.groupName)'"
+            Set-CIPPStandardsCompareField -FieldName "standards.NinjaCveSync" -FieldValue $ReportMessage -TenantFilter $Tenant
+        }
+
+        # ============================
+        # 8. ALERT MODE
+        # ============================
+        if ($Settings.alert) {
+            Write-StandardsAlert -message "Uploaded $($CsvRows.Count) CVEs to NinjaOne scan group '$($ResolvedScanGroup.groupName)' (ID: $ResolvedScanGroupId)" -tenant $Tenant -standardName 'NinjaCveSync' -standardId $Settings.standardId
+        }
+
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Ninja CVE Sync completed successfully for $($CsvRows.Count) CVEs" -Sev 'Info'
+
+    } catch {
+        $ErrorMessage = Get-NormalizedError -Message $_.Exception.Message
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Ninja CVE Sync failed: $ErrorMessage" -Sev 'Error'
+        
+        if ($Settings.report) {
+            Set-CIPPStandardsCompareField -FieldName "standards.NinjaCveSync" -FieldValue "Failed: $ErrorMessage" -TenantFilter $Tenant
+        }
+        
+        throw $ErrorMessage
     }
 }
