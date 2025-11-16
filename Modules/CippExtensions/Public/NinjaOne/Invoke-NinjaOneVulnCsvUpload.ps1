@@ -4,7 +4,7 @@ function Invoke-NinjaOneVulnCsvUpload {
         Upload a CVE CSV to an existing NinjaOne vulnerability scan group.
     .DESCRIPTION
         Forms a multipart/form-data request with part name 'file' and posts to:
-          https://<Instance>/api/v2/vulnerability/scan-groups/{scanGroupId}/upload
+          https://<Instance>/v2/vulnerability/scan-groups/{scanGroupId}/upload
     .PARAMETER Instance
         NinjaOne API host (e.g., 'api.ninjarmm.com' or 'eu.ninjarmm.com'). Taken from $Configuration.Instance in CIPP.
     .PARAMETER ScanGroupId
@@ -55,7 +55,7 @@ function Invoke-NinjaOneVulnCsvUpload {
         $wr.Flush()
         $mem.Position = 0
 
-        $uri = "https://{0}/api/v2/vulnerability/scan-groups/{1}/upload" -f $normalizedInstance, $ScanGroupId
+        $uri = "https://{0}/v2/vulnerability/scan-groups/{1}/upload" -f $normalizedInstance, $ScanGroupId
         $contentType = "multipart/form-data; boundary=$boundary"
 
         Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to scan-group $ScanGroupId at $uri" -Sev 'Info'
@@ -71,3 +71,4 @@ function Invoke-NinjaOneVulnCsvUpload {
         $mem.Dispose()
     }
 }
+
