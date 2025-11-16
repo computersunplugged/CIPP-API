@@ -1,17 +1,4 @@
 function Invoke-NinjaOneVulnCsvUpload {
-    <#
-    .SYNOPSIS
-        Upload a CVE CSV to a NinjaOne vulnerability scan group.
-    .DESCRIPTION
-        Accepts the full, correctly constructed upload URI from the calling script.
-    .PARAMETER Uri
-        Full upload endpoint:
-        https://<instance>/v2/vulnerability/scan-groups/<scanGroupId>/upload
-    .PARAMETER CsvBytes
-        UTF-8 byte[] CSV payload.
-    .PARAMETER Headers
-        Hashtable (must include Authorization header).
-    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Uri,
@@ -25,16 +12,13 @@ function Invoke-NinjaOneVulnCsvUpload {
     $wr  = New-Object System.IO.StreamWriter($mem, [System.Text.Encoding]::UTF8)
 
     try {
-        # multipart header
         $wr.Write("--$boundary$nl")
         $wr.Write("Content-Disposition: form-data; name=`"file`"; filename=`"cve.csv`"$nl")
         $wr.Write("Content-Type: text/csv$nl$nl")
         $wr.Flush()
 
-        # CSV content
         $mem.Write($CsvBytes, 0, $CsvBytes.Length)
 
-        # closing boundary
         $wr.Write("$nl--$boundary--$nl")
         $wr.Flush()
         $mem.Position = 0
