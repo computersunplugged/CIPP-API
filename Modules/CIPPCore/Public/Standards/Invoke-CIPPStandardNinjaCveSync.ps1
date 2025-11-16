@@ -141,7 +141,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         }
 
         $ResolvedScanGroupId = $ResolvedScanGroup.id
-        Write-LogMessage - 'NinjaCveSync' -tenant $Tenant -message "Resolved scan group '$ScanGroupInput' to ID $ResolvedScanGroupId (name: $($ResolvedScanGroup.groupName))" -Sev 'Info'
+        Write-LogMessage - 'NinjaCveSync' -tenant $Tenant -message "Resolved scan group '$ScanGroupInput' to ID $ResolvedScanGroupId (name: $($ScanGroupInput))" -Sev 'Info'
 
         # ============================
         # 5. TRANSFORM TO CSV ROWS
@@ -258,6 +258,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         throw $ErrorMessage
     }
 }
+
 
 
 
