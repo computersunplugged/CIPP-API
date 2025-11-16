@@ -189,12 +189,13 @@ function Invoke-CIPPStandardNinjaCveSync {
         
         Write-LogMessage - 'NinjaCveSync' -tenant $Tenant -message "Generated CSV payload: $($CsvBytes.Length) bytes" -Sev 'Debug'
 
-        # Preview first 20 lines of the CSV
+        # Preview first 5 lines of the CSV
         try {
             $CsvText = [System.Text.Encoding]::UTF8.GetString($CsvBytes)
-            $Preview = ($CsvText -split "`n")[0..([Math]::Min(20, ($CsvText -split "`n").Count - 1))]
+            $Preview = ($CsvText -split "`n")[0..([Math]::Min(5, ($CsvText -split "`n").Count - 1))]
             Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -Sev 'Debug' -message ("CSV Preview:`n" + ($Preview -join "`n"))
         }
+        
         catch {
             Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -Sev 'Warning' -message "CSV preview failed: $($_.Exception.Message)"
         }
@@ -202,16 +203,17 @@ function Invoke-CIPPStandardNinjaCveSync {
         # ============================
         # 7. UPLOAD TO NINJAONE (using helper function)
         # ============================
-        Write-LogMessage - 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroupId: $ResolvedScanGroupId)" -Sev 'Info'
+        # Build the full upload URI once and pass it to the helper
+        $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId/upload"
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroupId: $ResolvedScanGroupId, Uri: $UploadUri)" -Sev 'Info'
 
         try {
             $Response = Invoke-NinjaOneVulnCsvUpload `
-                -Instance $Configuration.Instance `
-                -ScanGroupId $ResolvedScanGroupId `
+                -Uri $UploadUri `
                 -CsvBytes $CsvBytes `
                 -Headers $Headers
-            
-            Write-LogMessage - 'NinjaCveSync' -tenant $Tenant -message "Upload completed successfully" -Sev 'Info'
+    
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Upload completed successfully" -Sev 'Info'
             
             # Log response if present
             if ($Response) {
@@ -256,5 +258,6 @@ function Invoke-CIPPStandardNinjaCveSync {
         throw $ErrorMessage
     }
 }
+
 
 
