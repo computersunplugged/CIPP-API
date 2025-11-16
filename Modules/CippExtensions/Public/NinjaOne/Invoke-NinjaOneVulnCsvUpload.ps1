@@ -1,39 +1,23 @@
 function Invoke-NinjaOneVulnCsvUpload {
     <#
     .SYNOPSIS
-        Upload a CVE CSV to an existing NinjaOne vulnerability scan group.
+        Upload a CVE CSV to a NinjaOne vulnerability scan group.
     .DESCRIPTION
-        Forms a multipart/form-data request with part name 'file' and posts to:
-          https://<Instance>/v2/vulnerability/scan-groups/{scanGroupId}/upload
-    .PARAMETER Instance
-        NinjaOne API host (e.g., 'api.ninjarmm.com' or 'eu.ninjarmm.com'). Taken from $Configuration.Instance in CIPP.
-    .PARAMETER ScanGroupId
-        Target scan group id.
+        Accepts the full, correctly constructed upload URI from the calling script.
+    .PARAMETER Uri
+        Full upload endpoint:
+        https://<instance>/v2/vulnerability/scan-groups/<scanGroupId>/upload
     .PARAMETER CsvBytes
-        UTF-8 byte[] of the CSV payload.
+        UTF-8 byte[] CSV payload.
     .PARAMETER Headers
-        Hashtable of HTTP headers; must include Authorization: Bearer <token>.
+        Hashtable (must include Authorization header).
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$Instance,
-        [Parameter(Mandatory)][string]$ScanGroupId,
+        [Parameter(Mandatory)][string]$Uri,
         [Parameter(Mandatory)][byte[]]$CsvBytes,
         [Parameter(Mandatory)][hashtable]$Headers
     )
-
-    # ============================
-    # 0. VALIDATE & NORMALISE INSTANCE
-    # ============================
-    if ([string]::IsNullOrWhiteSpace($Instance)) {
-        Write-LogMessage -API 'NinjaOne' -message "Instance value is empty; cannot build NinjaOne API URI." -Sev 'Error'
-        throw "NinjaOne instance is empty or null. Check Extensionsconfig -> NinjaOne.Instance."
-    }
-
-    # Allow either 'api.ninjarmm.com' or 'https://api.ninjarmm.com/' etc.
-    $normalizedInstance = $Instance.Trim()
-    $normalizedInstance = $normalizedInstance -replace '^https?://', ''
-    $normalizedInstance = $normalizedInstance.TrimEnd('/')
 
     $boundary = [System.Guid]::NewGuid().ToString()
     $nl = "`r`n"
@@ -41,7 +25,7 @@ function Invoke-NinjaOneVulnCsvUpload {
     $wr  = New-Object System.IO.StreamWriter($mem, [System.Text.Encoding]::UTF8)
 
     try {
-        # Part header
+        # multipart header
         $wr.Write("--$boundary$nl")
         $wr.Write("Content-Disposition: form-data; name=`"file`"; filename=`"cve.csv`"$nl")
         $wr.Write("Content-Type: text/csv$nl$nl")
@@ -50,16 +34,18 @@ function Invoke-NinjaOneVulnCsvUpload {
         # CSV content
         $mem.Write($CsvBytes, 0, $CsvBytes.Length)
 
-        # Trailer
+        # closing boundary
         $wr.Write("$nl--$boundary--$nl")
         $wr.Flush()
         $mem.Position = 0
 
-        $uri = "https://{0}/v2/vulnerability/scan-groups/{1}/upload" -f $normalizedInstance, $ScanGroupId
-        $contentType = "multipart/form-data; boundary=$boundary"
+        Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to $Uri" -Sev 'Info'
 
-        Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to scan-group $ScanGroupId at $uri" -Sev 'Info'
-        $resp = Invoke-RestMethod -Method POST -Uri $uri -Headers $Headers -ContentType $contentType -Body $mem
+        $resp = Invoke-RestMethod -Method POST -Uri $Uri `
+            -Headers $Headers `
+            -ContentType "multipart/form-data; boundary=$boundary" `
+            -Body $mem
+
         return $resp
     }
     catch {
@@ -71,4 +57,3 @@ function Invoke-NinjaOneVulnCsvUpload {
         $mem.Dispose()
     }
 }
-
