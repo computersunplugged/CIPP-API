@@ -34,7 +34,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         $Settings
     )
 
-    Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Starting Ninja CVE Sync standard" -Sev 'Info'
+    Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Starting Ninja CVE Sync standard V0.5" -Sev 'Info'
 
     # ============================
     # 1. VALIDATE INPUTS & GET CONFIG
@@ -223,3 +223,4 @@ function Invoke-CIPPStandardNinjaCveSync {
         throw $ErrorMessage
     }
 }
+
