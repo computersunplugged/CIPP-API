@@ -101,50 +101,10 @@ function Invoke-CIPPStandardNinjaCveSync {
         # Build base API URL from configuration
         $NinjaBaseUrl = "https://$($Configuration.Instance)/v2"
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Using NinjaOne API base: $NinjaBaseUrl" -Sev 'Debug'
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Using scan group name: '$ScanGroupInput'" -Sev 'Info'
 
         # ============================
-        # 4. RESOLVE SCAN GROUP ID
-        # ============================
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Fetching scan groups from NinjaOne to resolve '$ScanGroupInput'" -Sev 'Debug'
-        
-        $ScanGroupsUri = "$NinjaBaseUrl/vulnerability/scan-groups"
-        
-        try {
-            $ScanGroups = Invoke-RestMethod -Method Get -Uri $ScanGroupsUri -Headers $Headers -TimeoutSec 30
-        }
-        catch {
-            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Failed to retrieve scan groups: $($_.Exception.Message)" -Sev 'Error'
-            throw "Failed to retrieve scan groups from NinjaOne: $($_.Exception.Message)"
-        }
-
-        if (-not $ScanGroups) {
-            throw "Failed to retrieve scan groups from NinjaOne. Response was empty."
-        }
-
-        # If input is all digits, treat as ID; otherwise treat as groupName
-        $ResolvedScanGroup = $null
-        if ($ScanGroupInput -match '^\d+$') {
-            # Numeric → ID
-            $ResolvedScanGroup = $ScanGroups | Where-Object { $_.id -eq [int]$ScanGroupInput }
-            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "ScanGroup input '$ScanGroupInput' treated as ID" -Sev 'Debug'
-        }
-        else {
-            # Non-numeric → name
-            $ResolvedScanGroup = $ScanGroups | Where-Object { $_.groupName -eq $ScanGroupInput }
-            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "ScanGroup input '$ScanGroupInput' treated as groupName" -Sev 'Debug'
-        }
-
-        if (-not $ResolvedScanGroup) {
-            $Available = ($ScanGroups | Select-Object -First 10 | ForEach-Object { "$($_.id):$($_.groupName)" }) -join ', '
-            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Unable to resolve scan group '$ScanGroupInput'. First few available: $Available" -Sev 'Error'
-            throw "Scan group '$ScanGroupInput' could not be resolved by ID or groupName."
-        }
-
-        $ResolvedScanGroupId = $ResolvedScanGroup.id
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Resolved scan group '$ScanGroupInput' to ID $ResolvedScanGroupId (name: $($ResolvedScanGroup.groupName))" -Sev 'Info'
-
-        # ============================
-        # 5. TRANSFORM TO CSV ROWS
+        # 4. TRANSFORM TO CSV ROWS
         # ============================
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Transforming CVE data into Ninja CSV format" -Sev 'Debug'
         $CsvRows = @()
@@ -179,7 +139,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Prepared $($CsvRows.Count) CVE rows for upload" -Sev 'Info'
 
         # ============================
-        # 6. BUILD CSV BYTES (using helper function)
+        # 5. BUILD CSV BYTES (using helper function)
         # ============================
         $CsvBytes = New-VulnCsvBytes -Rows $CsvRows -Headers @('deviceIdentifier', 'cveId')
         
@@ -206,11 +166,11 @@ function Invoke-CIPPStandardNinjaCveSync {
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "=== CSV PREVIEW END ===" -Sev 'Info'
 
         # ============================
-        # 7. UPLOAD TO NINJAONE (using helper function)
+        # 6. UPLOAD TO NINJAONE (using helper function)
         # ============================
-        # Use the scan group NAME in the URL, not the numeric ID
-        $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$($ResolvedScanGroup.groupName)/upload"
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroup: '$($ResolvedScanGroup.groupName)', Uri: $UploadUri)" -Sev 'Info'
+        # Use the scan group NAME directly from settings - no lookup needed
+        $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$ScanGroupInput/upload"
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroup: '$ScanGroupInput', Uri: $UploadUri)" -Sev 'Info'
 
         try {
             $Response = Invoke-NinjaOneVulnCsvUpload `
@@ -236,18 +196,18 @@ function Invoke-CIPPStandardNinjaCveSync {
         }
 
         # ============================
-        # 8. REPORT MODE
+        # 7. REPORT MODE
         # ============================
         if ($Settings.report) {
-            $ReportMessage = "Uploaded $($CsvRows.Count) CVEs to scan group '$($ResolvedScanGroup.groupName)'"
+            $ReportMessage = "Uploaded $($CsvRows.Count) CVEs to scan group '$ScanGroupInput'"
             Set-CIPPStandardsCompareField -FieldName "standards.NinjaCveSync" -FieldValue $ReportMessage -TenantFilter $Tenant
         }
 
         # ============================
-        # 9. ALERT MODE
+        # 8. ALERT MODE
         # ============================
         if ($Settings.alert) {
-            Write-StandardsAlert -message "Uploaded $($CsvRows.Count) CVEs to NinjaOne scan group '$($ResolvedScanGroup.groupName)' (ID: $ResolvedScanGroupId)" -tenant $Tenant -standardName 'NinjaCveSync' -standardId $Settings.standardId
+            Write-StandardsAlert -message "Uploaded $($CsvRows.Count) CVEs to NinjaOne scan group '$ScanGroupInput'" -tenant $Tenant -standardName 'NinjaCveSync' -standardId $Settings.standardId
         }
 
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Ninja CVE Sync completed successfully for $($CsvRows.Count) CVEs" -Sev 'Info'
