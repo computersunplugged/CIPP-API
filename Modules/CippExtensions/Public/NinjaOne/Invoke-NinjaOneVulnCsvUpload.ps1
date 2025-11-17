@@ -11,7 +11,7 @@ function Invoke-NinjaOneVulnCsvUpload {
     $wr  = New-Object System.IO.StreamWriter($mem, [System.Text.Encoding]::UTF8)
     try {
         $wr.Write("--$boundary$nl")
-        $wr.Write("Content-Disposition: form-data; name=`"file`"; filename=`"cve.csv`"$nl")
+        $wr.Write("Content-Disposition: form-data; name=`"csv`"; filename=`"cve.csv`"$nl")
         $wr.Write("Content-Type: text/csv$nl$nl")
         $wr.Flush()
         $mem.Write($CsvBytes, 0, $CsvBytes.Length)
@@ -19,7 +19,7 @@ function Invoke-NinjaOneVulnCsvUpload {
         $wr.Flush()
         $mem.Position = 0
         
-        Write-LogMessage -API 'NinjaOne' -message "V0.9 Uploading CVE CSV to $Uri" -Sev 'Info'
+        Write-LogMessage -API 'NinjaOne' -message "V1.0 Uploading CVE CSV to $Uri" -Sev 'Info'
         
         # Debug multipart body
         $debugBody = [System.Text.Encoding]::UTF8.GetString($mem.ToArray())
@@ -41,3 +41,4 @@ function Invoke-NinjaOneVulnCsvUpload {
         $mem.Dispose()
     }
 }
+
