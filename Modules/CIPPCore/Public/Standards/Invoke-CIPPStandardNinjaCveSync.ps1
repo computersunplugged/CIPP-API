@@ -99,7 +99,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         }
         
         # Build base API URL from configuration
-        $NinjaBaseUrl = "https://$($Configuration.Instance)/api/v2"
+        $NinjaBaseUrl = "https://$($Configuration.Instance)/v2"
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Using NinjaOne API base: $NinjaBaseUrl" -Sev 'Debug'
 
         # ============================
@@ -188,6 +188,18 @@ function Invoke-CIPPStandardNinjaCveSync {
         }
         
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Generated CSV payload: $($CsvBytes.Length) bytes" -Sev 'Debug'
+
+        # Preview first 5 lines of the CSV
+        try {
+            $CsvText = [System.Text.Encoding]::UTF8.GetString($CsvBytes)
+            $Lines   = ($CsvText -split "`r?`n") | Where-Object { $_.Trim() -ne "" }
+            $Max     = [Math]::Min(5, $Lines.Count)
+            $Preview = ($Lines | Select-Object -First $Max) -join "`n"
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "CSV Preview (first $Max lines):`n$Preview" -Sev 'Debug'
+        }
+        catch {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "CSV preview failed: $($_.Exception.Message)" -Sev 'Warning'
+        }
 
         # ============================
         # 7. UPLOAD TO NINJAONE (using helper function)
