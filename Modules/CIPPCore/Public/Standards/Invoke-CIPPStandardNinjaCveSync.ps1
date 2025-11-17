@@ -204,12 +204,12 @@ function Invoke-CIPPStandardNinjaCveSync {
         # ============================
         # 7. UPLOAD TO NINJAONE (using helper function)
         # ============================
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroupId: $ResolvedScanGroupId)" -Sev 'Info'
+        $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId/upload"
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroupId: $ResolvedScanGroupId, Uri: $UploadUri)" -Sev 'Info'
 
         try {
             $Response = Invoke-NinjaOneVulnCsvUpload `
-                -Instance $Configuration.Instance `
-                -ScanGroupId $ResolvedScanGroupId `
+                -Uri $UploadUri `
                 -CsvBytes $CsvBytes `
                 -Headers $Headers
             
