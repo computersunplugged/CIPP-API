@@ -34,7 +34,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         $Settings
     )
 
-    Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Starting Ninja CVE Sync standard 0.6" -Sev 'Info'
+    Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Starting Ninja CVE Sync standard V0.7" -Sev 'Info'
 
     # ============================
     # 1. VALIDATE INPUTS & GET CONFIG
@@ -99,7 +99,7 @@ function Invoke-CIPPStandardNinjaCveSync {
         }
         
         # Build base API URL from configuration
-        $NinjaBaseUrl = "https://$($Configuration.Instance)/v2"
+        $NinjaBaseUrl = "https://$($Configuration.Instance)/api/v2"
         Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Using NinjaOne API base: $NinjaBaseUrl" -Sev 'Debug'
 
         # ============================
