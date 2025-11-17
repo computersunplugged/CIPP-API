@@ -187,25 +187,30 @@ function Invoke-CIPPStandardNinjaCveSync {
             throw "Failed to generate CSV bytes from vulnerability data"
         }
         
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Generated CSV payload: $($CsvBytes.Length) bytes" -Sev 'Debug'
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Generated CSV payload: $($CsvBytes.Length) bytes" -Sev 'Info'
 
-        # Preview first 5 lines of the CSV
+        # Preview first 5 lines of the CSV - ALWAYS log this at Info level for debugging
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "=== CSV PREVIEW START ===" -Sev 'Info'
         try {
             $CsvText = [System.Text.Encoding]::UTF8.GetString($CsvBytes)
-            $Lines   = ($CsvText -split "`r?`n") | Where-Object { $_.Trim() -ne "" }
+            $Lines   = $CsvText -split "`r`n|`n"
             $Max     = [Math]::Min(5, $Lines.Count)
-            $Preview = ($Lines | Select-Object -First $Max) -join "`n"
-            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "CSV Preview (first $Max lines):`n$Preview" -Sev 'Debug'
+            
+            for ($i = 0; $i -lt $Max; $i++) {
+                Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Line $($i + 1): $($Lines[$i])" -Sev 'Info'
+            }
         }
         catch {
-            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "CSV preview failed: $($_.Exception.Message)" -Sev 'Warning'
+            Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "CSV preview failed: $($_.Exception.Message)" -Sev 'Error'
         }
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "=== CSV PREVIEW END ===" -Sev 'Info'
 
         # ============================
         # 7. UPLOAD TO NINJAONE (using helper function)
         # ============================
-        $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId/upload"
-        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroupId: $ResolvedScanGroupId, Uri: $UploadUri)" -Sev 'Info'
+        # Use the scan group NAME in the URL, not the numeric ID
+        $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$($ResolvedScanGroup.groupName)/upload"
+        Write-LogMessage -API 'NinjaCveSync' -tenant $Tenant -message "Uploading CVE CSV to NinjaOne (ScanGroup: '$($ResolvedScanGroup.groupName)', Uri: $UploadUri)" -Sev 'Info'
 
         try {
             $Response = Invoke-NinjaOneVulnCsvUpload `
