@@ -15,7 +15,7 @@ function Invoke-ExecAddCippCveException {
 try {
     # Parse request body
     $Body = $Request.Body
-    
+
     # Convert to strings explicitly to avoid type issues
     $cveId = [string]$Body.cveId
     $exceptionType = [string]$Body.exceptionType
@@ -23,19 +23,19 @@ try {
     $justification = [string]$Body.justification
     $expiryDate = if ($Body.expiryDate) { [string]$Body.expiryDate } else { $null }
     $TenantFilter = $Request.Query.TenantFilter
-    
+
     # Validate required fields
     if (-not $cveId -or -not $exceptionType -or -not $applyTo -or -not $justification) {
         throw "Missing required fields: cveId, exceptionType, applyTo, and justification are required"
     }
-    
+
     # Get tables
     $CveExceptionsTable = Get-CIPPTable -TableName 'CveExceptions'
     $CveCacheTable = Get-CIPPTable -TableName 'CveCache'
-    
+
     # Determine which tenants to apply the exception to
     $TenantsToUpdate = @()
-    
+
     switch ($applyTo) {
         "CurrentTenant" {
             if (-not $TenantFilter -or $TenantFilter -eq 'AllTenants') {
@@ -53,22 +53,22 @@ try {
             $TenantsToUpdate = @("ALL")
         }
     }
-    
+
     Write-Host "Applying exception to tenants: $($TenantsToUpdate -join ', ')"
-    
+
     # Get current user from headers
     $Username = $Headers.'x-ms-client-principal-name'
     $CurrentDate = (Get-Date).ToUniversalTime().ToString('o')
     $ReadableDate = (Get-Date).ToString()
-    
+
     # Create exception entries
-    $ExceptionsAdded = @()
-    $ExceptionsUpdated = @()
-    
+    $ExceptionsAdded = [System.Collections.Generic.List[ExceptionsAdded]]::New()
+    $ExceptionsUpdated = [System.Collections.Generic.List[ExceptionsUpdated]]::New()
+
     foreach ($TenantId in $TenantsToUpdate) {
         # Check if exception already exists
         $ExistingException = Get-CIPPAzDataTableEntity @CveExceptionsTable -Filter "PartitionKey eq '$cveId' and RowKey eq '$TenantId'"
-        
+
         $ExceptionEntity = @{
             PartitionKey            = [string]$cveId
             RowKey                  = [string]$TenantId
@@ -82,17 +82,17 @@ try {
             exceptionExpiry         = if ($expiryDate) { [string]$expiryDate } else { "" }
             source                  = "CIPP"
         }
-        
+
         # Add or update exception
         Add-CIPPAzDataTableEntity @CveExceptionsTable -Entity $ExceptionEntity -Force
-        
+
         if ($ExistingException) {
-            $ExceptionsUpdated += $TenantId
+            $ExceptionsUpdated.add($TenantId)
         } else {
-            $ExceptionsAdded += $TenantId
+            $ExceptionsAdded.add($TenantId)
         }
     }
-    
+
     # Now update the CveCache entries to reflect the exception
     foreach ($TenantId in $TenantsToUpdate) {
         if ($TenantId -eq "ALL") {
@@ -102,19 +102,19 @@ try {
             # Specific tenant - update only entries for this tenant
             $CacheFilter = "PartitionKey eq '$cveId' and customerId eq '$TenantId'"
         }
-        
+
         $CacheEntries = Get-CIPPAzDataTableEntity @CveCacheTable -Filter $CacheFilter
-        
+
         foreach ($CacheEntry in $CacheEntries) {
             $CacheEntry.hasException = $true
             $CacheEntry.exceptionSource = "CIPP"
-            
+
             Add-CIPPAzDataTableEntity @CveCacheTable -Entity $CacheEntry -Force
         }
     }
-    
+
     Write-LogMessage -headers $Headers -API $APIName -message "Added/updated CVE exception for $cveId across $($TenantsToUpdate.Count) tenant(s)" -Sev Info
-    
+
     $StatusCode = [HttpStatusCode]::OK
     $Body = [PSCustomObject]@{
         Results = "Successfully applied exception to CVE $cveId"
@@ -123,7 +123,7 @@ try {
         ExceptionsUpdated = $ExceptionsUpdated.Count
         Details = "Added: $($ExceptionsAdded -join ', '), Updated: $($ExceptionsUpdated -join ', ')"
     }
-    
+
 } catch {
     $ErrorMessage = Get-CippException -Exception $_
     Write-LogMessage -headers $Headers -API $APIName -message "Failed to add CVE exception: $($ErrorMessage.NormalizedError)" -Sev Error -LogData $ErrorMessage
