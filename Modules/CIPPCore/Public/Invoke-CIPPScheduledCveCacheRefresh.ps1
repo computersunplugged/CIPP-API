@@ -86,7 +86,7 @@ function Invoke-CIPPScheduledCveCacheRefresh {
         # ============================
         # 6. BUILD ENTITIES
         # ============================
-        $Entities     = @()
+        $Entities     = [System.Collections.Generic.List[Object]]::new()
         $SkippedCount = 0
 
         foreach ($vuln in $AllVulns) {
@@ -104,7 +104,7 @@ function Invoke-CIPPScheduledCveCacheRefresh {
                                elseif ($hasCippException)     { 'CIPP' }
                                else                           { '' }
 
-            $Entities += @{
+            $Entities.Add( @{
                 PartitionKey                 = $vuln.cveId
                 RowKey                       = "$TenantFilter`_$($vuln.deviceName)"
                 customerId                   = $TenantFilter
@@ -132,7 +132,7 @@ function Invoke-CIPPScheduledCveCacheRefresh {
                 hasException                 = $hasException
                 exceptionSource              = $exceptionSource
                 lastUpdated                  = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-            }
+            })
         }
 
         if ($SkippedCount -gt 0) {
