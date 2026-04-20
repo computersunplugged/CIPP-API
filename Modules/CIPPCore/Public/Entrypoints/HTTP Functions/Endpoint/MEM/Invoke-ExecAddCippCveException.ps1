@@ -62,8 +62,8 @@ try {
     $ReadableDate = (Get-Date).ToString()
 
     # Create exception entries
-    $ExceptionsAdded = [System.Collections.Generic.List[ExceptionsAdded]]::New()
-    $ExceptionsUpdated = [System.Collections.Generic.List[ExceptionsUpdated]]::New()
+    $ExceptionsAdded = [System.Collections.Generic.List[Object]]::New()
+    $ExceptionsUpdated = [System.Collections.Generic.List[Object]]::New()
 
     foreach ($TenantId in $TenantsToUpdate) {
         # Check if exception already exists

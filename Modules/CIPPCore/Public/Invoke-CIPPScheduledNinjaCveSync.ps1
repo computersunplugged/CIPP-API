@@ -158,7 +158,7 @@ function Invoke-CIPPScheduledNinjaCveSync {
             # ============================
             # 6d. BUILD AND UPLOAD CSV
             # ============================
-            $CsvRows      = @()
+            $CsvRows      = [System.Collections.Generic.List[Object]]::new()
             $SkippedCount = 0
 
             foreach ($item in $AllVulns) {
@@ -166,10 +166,10 @@ function Invoke-CIPPScheduledNinjaCveSync {
                     $SkippedCount++
                     continue
                 }
-                $CsvRows += [PSCustomObject]@{
+                $CsvRows.Add([PSCustomObject]@{
                     $DeviceIdHeader = $item.deviceName.Trim()
                     $CveIdHeader    = $item.cveId.Trim()
-                }
+                })
             }
 
             if ($SkippedCount -gt 0) {
