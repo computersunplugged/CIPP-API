@@ -44,7 +44,7 @@ function Invoke-NinjaOneVulnCsvUpload {
         $Resp = Invoke-RestMethod -Method POST -Uri $Uri `
             -Headers $Headers `
             -ContentType "multipart/form-data; boundary=$Boundary" `
-            -Body $Mem
+            -Body $Mem `
             -ErrorAction Stop
 
         return $Resp
