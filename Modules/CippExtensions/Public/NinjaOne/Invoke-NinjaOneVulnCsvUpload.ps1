@@ -16,8 +16,11 @@ function Invoke-NinjaOneVulnCsvUpload {
         [Parameter(Mandatory)][hashtable]$Headers
     )
 
-    $Boundary = [System.Guid]::NewGuid().ToString()
-    $LF       = "`r`n"
+    $Boundary   = [System.Guid]::NewGuid().ToString()
+    $LF         = "`r`n"
+    $MaxRetries = 3
+    $RetryDelay = 5
+    $Attempt    = 0
 
     $BodyLines = @(
     "--$Boundary"
@@ -32,27 +35,47 @@ function Invoke-NinjaOneVulnCsvUpload {
     $TrailerText  = "$LF--$Boundary--$LF"
     $TrailerBytes = [System.Text.Encoding]::UTF8.GetBytes($TrailerText)
 
-    $Mem = [System.IO.MemoryStream]::new()
-    try {
-        $Mem.Write($HeaderBytes, 0, $HeaderBytes.Length)
-        $Mem.Write($CsvBytes,    0, $CsvBytes.Length)
-        $Mem.Write($TrailerBytes, 0, $TrailerBytes.Length)
-        $Mem.Position = 0
+    while ($Attempt -le $MaxRetries) {
+        $Mem = [System.IO.MemoryStream]::new()
+        try {
+            $Mem.Write($HeaderBytes, 0, $HeaderBytes.Length)
+            $Mem.Write($CsvBytes,    0, $CsvBytes.Length)
+            $Mem.Write($TrailerBytes, 0, $TrailerBytes.Length)
+            $Mem.Position = 0
 
-        Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to NinjaOne ($($CsvBytes.Length) bytes)" -sev 'Debug'
+            if ($Attempt -eq 0) {
+                Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to NinjaOne ($($CsvBytes.Length) bytes)" -sev 'Debug'
+            } else {
+                Write-LogMessage -API 'NinjaOne' -message "Retrying CVE CSV upload (attempt $Attempt of $MaxRetries)" -sev 'Warning'
+            }
 
-        $Resp = Invoke-RestMethod -Method POST -Uri $Uri `
-            -Headers $Headers `
-            -ContentType "multipart/form-data; boundary=$Boundary" `
-            -Body $Mem `
-            -ErrorAction Stop
+            $Resp = Invoke-RestMethod -Method POST -Uri $Uri `
+                -Headers $Headers `
+                -ContentType "multipart/form-data; boundary=$Boundary" `
+                -Body $Mem `
+                -ErrorAction Stop
 
-        return $Resp
-    } catch {
-        $ErrorMessage = Get-CippException -Exception $_
-        Write-LogMessage -API 'NinjaOne' -message "CSV upload failed: $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
-        throw
-    } finally {
-        $Mem.Dispose()
+            return $Resp
+        } catch {
+            $ErrorMessage = Get-CippException -Exception $_
+
+            # Do not retry on 404 — scan group not found is a config issue, not transient
+            if ($_.Exception.Response.StatusCode.value__ -eq 404) {
+                Write-LogMessage -API 'NinjaOne' -message "CSV upload failed (404 — scan group not found, not retrying): $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
+                throw
+            }
+
+            if ($Attempt -lt $MaxRetries) {
+                Write-LogMessage -API 'NinjaOne' -message "CSV upload failed (attempt $Attempt of $MaxRetries), retrying in ${RetryDelay}s: $($ErrorMessage.NormalizedError)" -sev 'Warning' -LogData $ErrorMessage
+                Start-Sleep -Seconds $RetryDelay
+            } else {
+                Write-LogMessage -API 'NinjaOne' -message "CSV upload failed after $MaxRetries retries: $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
+                throw
+            }
+        } finally {
+            $Mem.Dispose()
+        }
+
+        $Attempt++
     }
 }
