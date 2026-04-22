@@ -29,6 +29,9 @@ function Invoke-ExecAddCippCveException {
         $CveExceptionsTable = Get-CIPPTable -TableName 'CveExceptions'
         $CveCacheTable      = Get-CIPPTable -TableName 'CveCache'
 
+        # Load all existing exceptions for this CVE once
+        $AllCveExceptions = Get-CIPPAzDataTableEntity @CveExceptionsTable -Filter "PartitionKey eq '$CveId'"
+
         $TenantsToUpdate = switch ($ApplyTo) {
             'CurrentTenant' {
                 if (-not $TenantFilter -or $TenantFilter -eq 'AllTenants') {
@@ -48,17 +51,24 @@ function Invoke-ExecAddCippCveException {
             }
         }
 
-        $Username    = $Headers.'x-ms-client-principal-name'
-        $CurrentDate = (Get-Date).ToUniversalTime().ToString('o')
+        $Username     = $Headers.'x-ms-client-principal-name'
+        $CurrentDate  = (Get-Date).ToUniversalTime().ToString('o')
         $ReadableDate = (Get-Date).ToString()
 
         $ExceptionsAdded   = [System.Collections.Generic.List[string]]::new()
         $ExceptionsUpdated = [System.Collections.Generic.List[string]]::new()
 
-        foreach ($TenantId in $TenantsToUpdate) {
-            $ExistingException = Get-CIPPAzDataTableEntity @CveExceptionsTable -Filter "PartitionKey eq '$CveId' and RowKey eq '$TenantId'"
+        # Build all exception entities in memory, track add vs update
+        $ExceptionEntities = foreach ($TenantId in $TenantsToUpdate) {
+            $ExistingException = $AllCveExceptions | Where-Object { $_.RowKey -eq $TenantId }
 
-            $ExceptionEntity = @{
+            if ($ExistingException) {
+                [void]$ExceptionsUpdated.Add($TenantId)
+            } else {
+                [void]$ExceptionsAdded.Add($TenantId)
+            }
+
+            @{
                 PartitionKey          = [string]$CveId
                 RowKey                = [string]$TenantId
                 cveId                 = [string]$CveId
@@ -71,30 +81,34 @@ function Invoke-ExecAddCippCveException {
                 exceptionExpiry       = $ExpiryDate ?? ''
                 source                = 'CIPP'
             }
-
-            Add-CIPPAzDataTableEntity @CveExceptionsTable -Entity $ExceptionEntity -Force
-
-            if ($ExistingException) {
-                [void]$ExceptionsUpdated.Add($TenantId)
-            } else {
-                [void]$ExceptionsAdded.Add($TenantId)
-            }
         }
 
-        foreach ($TenantId in $TenantsToUpdate) {
-            $CacheFilter = if ($TenantId -eq 'ALL') {
-                "PartitionKey eq '$CveId'"
-            } else {
-                "PartitionKey eq '$CveId' and customerId eq '$TenantId'"
-            }
+        # Write all exception entities in one batch
+        if (@($ExceptionEntities).Count -gt 0) {
+            Add-CIPPAzDataTableEntity @CveExceptionsTable -Entity @($ExceptionEntities) -Force
+        }
 
-            $CacheEntries = Get-CIPPAzDataTableEntity @CveCacheTable -Filter $CacheFilter
+        # Load all cache entries for this CVE once
+        $AllCacheEntries = Get-CIPPAzDataTableEntity @CveCacheTable -Filter "PartitionKey eq '$CveId'"
 
-            foreach ($CacheEntry in $CacheEntries) {
-                $CacheEntry.hasException    = $true
-                $CacheEntry.exceptionSource = 'CIPP'
-                Add-CIPPAzDataTableEntity @CveCacheTable -Entity $CacheEntry -Force
-            }
+        # Filter to affected cache entries
+        $AffectedCacheEntries = if ($TenantsToUpdate -contains 'ALL') {
+            $AllCacheEntries
+        } else {
+            $AllCacheEntries | Where-Object { $_.customerId -in $TenantsToUpdate }
+        }
+
+        # Update affected cache entries in memory then write as one batch
+        $CacheUpdates = [System.Collections.Generic.List[object]]::new()
+
+        foreach ($CacheEntry in $AffectedCacheEntries) {
+            $CacheEntry.hasException    = $true
+            $CacheEntry.exceptionSource = 'CIPP'
+            [void]$CacheUpdates.Add($CacheEntry)
+        }
+
+        if ($CacheUpdates.Count -gt 0) {
+            Add-CIPPAzDataTableEntity @CveCacheTable -Entity $CacheUpdates -Force
         }
 
         Write-LogMessage -API $APIName -tenant $TenantFilter -headers $Headers -message "Added/updated CVE exception for $CveId across $($TenantsToUpdate.Count) tenant(s)" -sev 'Info'
