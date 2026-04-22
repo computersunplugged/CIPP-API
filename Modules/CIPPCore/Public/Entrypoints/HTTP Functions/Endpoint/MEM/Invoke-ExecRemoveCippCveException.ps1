@@ -13,8 +13,8 @@ function Invoke-ExecRemoveCippCveException {
     $TenantFilter = $Request.Query.tenantFilter ?? $Request.Body.tenantFilter
 
     try {
-        $CveId       = $Request.Query.cveId
-        $RemoveScope = $Request.Query.removeScope
+        $CveId       = $Request.Query.cveId      ?? $Request.Body.cveId
+        $RemoveScope = $Request.Query.removeScope ?? $Request.Body.removeScope
 
         if (-not $CveId) {
             return [HttpResponseContext]@{
@@ -67,7 +67,8 @@ function Invoke-ExecRemoveCippCveException {
                 $CacheEntries = Get-CIPPAzDataTableEntity @CveCacheTable -Filter $CacheFilter
 
                 foreach ($CacheEntry in $CacheEntries) {
-                    $RemainingExceptions = Get-CIPPAzDataTableEntity @CveExceptionsTable -Filter "PartitionKey eq '$CveId' and (RowKey eq 'ALL' or RowKey eq '$($CacheEntry.customerId)')"
+                    $AllCveExceptions    = Get-CIPPAzDataTableEntity @CveExceptionsTable -Filter "PartitionKey eq '$CveId'"
+                    $RemainingExceptions = $AllCveExceptions | Where-Object { $_.RowKey -eq 'ALL' -or $_.RowKey -eq $CacheEntry.customerId }
 
                     if (-not $RemainingExceptions) {
                         $CacheEntry.hasException    = $false
