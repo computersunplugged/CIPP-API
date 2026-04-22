@@ -16,42 +16,43 @@ function Invoke-NinjaOneVulnCsvUpload {
         [Parameter(Mandatory)][hashtable]$Headers
     )
 
-    $boundary = [System.Guid]::NewGuid().ToString()
+    $Boundary = [System.Guid]::NewGuid().ToString()
     $LF       = "`r`n"
 
-    $bodyLines  = @()
-    $bodyLines += "--$boundary"
-    $bodyLines += 'Content-Disposition: form-data; name="csv"; filename="cve.csv"'
-    $bodyLines += 'Content-Type: text/csv'
-    $bodyLines += ''
+    $BodyLines = @(
+    "--$Boundary"
+    'Content-Disposition: form-data; name="csv"; filename="cve.csv"'
+    'Content-Type: text/csv'
+    ''
+    )
 
-    $headerText  = $bodyLines -join $LF
-    $headerBytes = [System.Text.Encoding]::UTF8.GetBytes($headerText + $LF)
+    $HeaderText  = $BodyLines -join $LF
+    $HeaderBytes = [System.Text.Encoding]::UTF8.GetBytes($HeaderText + $LF)
 
-    $trailerText  = "$LF--$boundary--$LF"
-    $trailerBytes = [System.Text.Encoding]::UTF8.GetBytes($trailerText)
+    $TrailerText  = "$LF--$Boundary--$LF"
+    $TrailerBytes = [System.Text.Encoding]::UTF8.GetBytes($TrailerText)
 
-    $mem = New-Object System.IO.MemoryStream
+    $Mem = [System.IO.MemoryStream]::new()
     try {
-        $mem.Write($headerBytes, 0, $headerBytes.Length)
-        $mem.Write($CsvBytes,    0, $CsvBytes.Length)
-        $mem.Write($trailerBytes, 0, $trailerBytes.Length)
-        $mem.Position = 0
+        $Mem.Write($HeaderBytes, 0, $HeaderBytes.Length)
+        $Mem.Write($CsvBytes,    0, $CsvBytes.Length)
+        $Mem.Write($TrailerBytes, 0, $TrailerBytes.Length)
+        $Mem.Position = 0
 
-        Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to NinjaOne ($($CsvBytes.Length) bytes)" -Sev 'Debug'
+        Write-LogMessage -API 'NinjaOne' -message "Uploading CVE CSV to NinjaOne ($($CsvBytes.Length) bytes)" -sev 'Debug'
 
-        $resp = Invoke-RestMethod -Method POST -Uri $Uri `
+        $Resp = Invoke-RestMethod -Method POST -Uri $Uri `
             -Headers $Headers `
-            -ContentType "multipart/form-data; boundary=$boundary" `
-            -Body $mem
+            -ContentType "multipart/form-data; boundary=$Boundary" `
+            -Body $Mem
+            -ErrorAction Stop
 
-        return $resp
-    }
-    catch {
-        Write-LogMessage -API 'NinjaOne' -message "CSV upload failed: $($_.Exception.Message)" -Sev 'Error'
+        return $Resp
+    } catch {
+        $ErrorMessage = Get-CippException -Exception $_
+        Write-LogMessage -API 'NinjaOne' -message "CSV upload failed: $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
         throw
-    }
-    finally {
-        if ($mem) { $mem.Dispose() }
+    } finally {
+        $Mem.Dispose()
     }
 }
