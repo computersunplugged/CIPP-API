@@ -108,16 +108,21 @@ function Invoke-NinjaOneCveSyncTenant {
             throw 'Failed to generate CSV bytes'
         }
 
-        # Upload
+        # Upload and poll for completion
         $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId/upload"
-        $Response  = Invoke-NinjaOneVulnCsvUpload -Uri $UploadUri -CsvBytes $CsvBytes -Headers $Headers
+        $PollUri   = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId"
+        $Response  = Invoke-NinjaOneVulnCsvUpload -Uri $UploadUri -PollUri $PollUri -CsvBytes $CsvBytes -Headers $Headers
 
-        if ($Response.status -and $Response.status -ne 'COMPLETE') {
-            Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "NinjaOne returned status '$($Response.status)' for '$ScanGroupName' — may indicate a processing issue" -sev 'Warning'
-        }
-
+        $FinalStatus    = $Response.status ?? 'unknown'
         $ProcessedCount = $Response.recordsProcessed ?? '?'
-        Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "Complete — $($CsvRows.Count) CVEs sent to '$ScanGroupName', status: $($Response.status ?? 'unknown'), $ProcessedCount processed by NinjaOne" -sev 'Info'
+
+        if ($FinalStatus -eq 'COMPLETE') {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "Complete — $($CsvRows.Count) CVEs sent to '$ScanGroupName', $ProcessedCount processed by NinjaOne" -sev 'Info'
+        } elseif ($FinalStatus -eq 'IN_PROGRESS') {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "Upload accepted — $($CsvRows.Count) CVEs sent to '$ScanGroupName', still processing (timed out polling)" -sev 'Warning'
+        } else {
+            Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "Upload finished with status '$FinalStatus' for '$ScanGroupName', $ProcessedCount processed by NinjaOne" -sev 'Warning'
+        }
 
     } catch {
         $ErrorMessage = Get-CippException -Exception $_
