@@ -60,27 +60,24 @@ Function Invoke-ExecExtensionSync {
                     }
 
                 } else {
-                    $Batch = [PSCustomObject]@{
-                        'NinjaAction'  = 'SyncTenants'
-                        'FunctionName' = 'NinjaOneQueue'
+                    $Batch = foreach ($Tenant in $TenantsToProcess) {
+                        [PSCustomObject]@{
+                            'NinjaAction'  = 'SyncTenant'
+                            'MappedTenant' = $Tenant
+                            'FunctionName' = 'NinjaOneQueue'
+                        }
+                        [PSCustomObject]@{
+                            'NinjaAction'  = 'CveSyncTenant'
+                            'MappedTenant' = $Tenant
+                            'FunctionName' = 'NinjaOneQueue'
+                        }
                     }
                     $InputObject = [PSCustomObject]@{
                         OrchestratorName = 'NinjaOneOrchestrator'
                         Batch            = @($Batch)
                     }
                     $InstanceId = Start-CIPPOrchestrator -InputObject $InputObject
-                    Write-Host "Started permissions orchestration with ID = '$InstanceId'"
-
-                    $CveBatch = [PSCustomObject]@{
-                        'NinjaAction'  = 'CveSyncTenants'
-                        'FunctionName' = 'NinjaOneQueue'
-                    }
-                    $CveInputObject = [PSCustomObject]@{
-                        OrchestratorName = 'NinjaOneOrchestrator'
-                        Batch            = @($CveBatch)
-                    }
-                    $CveInstanceId = Start-CIPPOrchestrator -InputObject $CveInputObject
-                    Write-Host "Started CVE sync orchestration with ID = '$CveInstanceId'"
+                    Write-Host "Started NinjaOne sync orchestration with ID = '$InstanceId'"
 
                     $Results = [pscustomobject]@{'Results' = "NinjaOne Synchronization Queuing $(($TenantsToProcess | Measure-Object).count) Tenants" }
                 }
