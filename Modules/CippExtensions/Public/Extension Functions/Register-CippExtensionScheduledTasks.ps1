@@ -77,7 +77,7 @@ function Register-CIPPExtensionScheduledTasks {
                     continue
                 }
                 $MappedTenants.Add($Tenant.defaultDomainName)
-
+                
                 # Legacy Sync-CippExtensionData tasks are no longer needed - extensions now use CippReportingDB
                 # All cache data is now collected by Push-CIPPDBCacheData scheduled tasks
 
