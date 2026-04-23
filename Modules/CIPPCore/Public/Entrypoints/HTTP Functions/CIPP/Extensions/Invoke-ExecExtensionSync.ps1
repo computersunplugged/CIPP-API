@@ -66,14 +66,12 @@ Function Invoke-ExecExtensionSync {
                             'MappedTenant' = $Tenant
                             'FunctionName' = 'NinjaOneQueue'
                         }
-<<<<<<< HEAD
-=======
+                        
                         [PSCustomObject]@{
                             'NinjaAction'  = 'CveSyncTenant'
                             'MappedTenant' = $Tenant
                             'FunctionName' = 'NinjaOneQueue'
                         }
->>>>>>> 10692946b625681c5668488605d72840918772a2
                     }
                     $InputObject = [PSCustomObject]@{
                         OrchestratorName = 'NinjaOneOrchestrator'
