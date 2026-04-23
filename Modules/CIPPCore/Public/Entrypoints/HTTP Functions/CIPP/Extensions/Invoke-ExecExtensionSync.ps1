@@ -60,16 +60,8 @@ Function Invoke-ExecExtensionSync {
                     }
 
                 } else {
-                    $Batch = foreach ($Tenant in $TenantsToProcess) {
-                        [PSCustomObject]@{
+                    $Batch = [PSCustomObject]@{
                             'NinjaAction'  = 'SyncTenant'
-                            'MappedTenant' = $Tenant
-                            'FunctionName' = 'NinjaOneQueue'
-                        }
-                        
-                        [PSCustomObject]@{
-                            'NinjaAction'  = 'CveSyncTenant'
-                            'MappedTenant' = $Tenant
                             'FunctionName' = 'NinjaOneQueue'
                         }
                     }
