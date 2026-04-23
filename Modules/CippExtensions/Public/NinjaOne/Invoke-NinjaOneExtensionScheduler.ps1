@@ -41,23 +41,15 @@ function Invoke-NinjaOneExtensionScheduler {
                 'MappedTenant' = $Tenant
                 'FunctionName' = 'NinjaOneQueue'
             }
-<<<<<<< HEAD
-=======
-            [PSCustomObject]@{
-                'NinjaAction'  = 'CveSyncTenant'
-                'MappedTenant' = $Tenant
-                'FunctionName' = 'NinjaOneQueue'
-            }
->>>>>>> 10692946b625681c5668488605d72840918772a2
         }
-
         if (($Batch | Measure-Object).Count -gt 0) {
             $InputObject = [PSCustomObject]@{
                 OrchestratorName = 'NinjaOneOrchestrator'
                 Batch            = @($Batch)
             }
+            #Write-Host ($InputObject | ConvertTo-Json)
             $InstanceId = Start-CIPPOrchestrator -InputObject $InputObject
-            Write-Host "Started NinjaOne sync orchestration with ID = '$InstanceId'"
+            Write-Host "Started permissions orchestration with ID = '$InstanceId'"
         }
 
         $AddObject = @{
@@ -67,7 +59,7 @@ function Invoke-NinjaOneExtensionScheduler {
         }
         Add-AzDataTableEntity @Table -Entity $AddObject -Force
 
-        Write-LogMessage -API 'NinjaOneSync' -message "NinjaOne Daily Synchronization Queued for $(($TenantsToProcess | Measure-Object).count) Tenants" -Sev 'Info'
+        Write-LogMessage -API 'NinjaOneSync'  -message "NinjaOne Daily Synchronization Queued for $(($TenantsToProcess | Measure-Object).count) Tenants" -Sev 'Info'
 
     } else {
         if ($LastRunTime -lt (Get-Date).AddMinutes(-90)) {
@@ -97,12 +89,13 @@ function Invoke-NinjaOneExtensionScheduler {
                     OrchestratorName = 'NinjaOneOrchestrator'
                     Batch            = @($Batch)
                 }
+                #Write-Host ($InputObject | ConvertTo-Json)
                 $InstanceId = Start-CIPPOrchestrator -InputObject $InputObject
                 Write-Host "Started permissions orchestration with ID = '$InstanceId'"
             }
 
             if (($CatchupTenants | Measure-Object).count -gt 0) {
-                Write-LogMessage -API 'NinjaOneSync' -message "NinjaOne Synchronization Catchup Queued for $(($CatchupTenants | Measure-Object).count) Tenants" -Sev 'Info'
+                Write-LogMessage -API 'NinjaOneSync'  -message "NinjaOne Synchronization Catchup Queued for $(($CatchupTenants | Measure-Object).count) Tenants" -Sev 'Info'
             }
 
         }
