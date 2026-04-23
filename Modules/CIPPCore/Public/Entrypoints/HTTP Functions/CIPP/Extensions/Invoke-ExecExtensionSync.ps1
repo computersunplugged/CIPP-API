@@ -52,6 +52,7 @@ Function Invoke-ExecExtensionSync {
                             OrchestratorName = 'NinjaOneOrchestrator'
                             Batch            = @($Batch)
                         }
+                        #Write-Host ($InputObject | ConvertTo-Json)
                         $InstanceId = Start-CIPPOrchestrator -InputObject $InputObject
 
                         $Results = [pscustomobject]@{'Results' = "NinjaOne Synchronization Queued for $($Tenant.IntegrationName)" }
@@ -61,18 +62,18 @@ Function Invoke-ExecExtensionSync {
 
                 } else {
                     $Batch = [PSCustomObject]@{
-                            'NinjaAction'  = 'SyncTenant'
-                            'FunctionName' = 'NinjaOneQueue'
-                        }
+                        'NinjaAction'  = 'SyncTenants'
+                        'FunctionName' = 'NinjaOneQueue'
                     }
                     $InputObject = [PSCustomObject]@{
                         OrchestratorName = 'NinjaOneOrchestrator'
                         Batch            = @($Batch)
                     }
+                    #Write-Host ($InputObject | ConvertTo-Json)
                     $InstanceId = Start-CIPPOrchestrator -InputObject $InputObject
-                    Write-Host "Started NinjaOne sync orchestration with ID = '$InstanceId'"
-
+                    Write-Host "Started permissions orchestration with ID = '$InstanceId'"
                     $Results = [pscustomobject]@{'Results' = "NinjaOne Synchronization Queuing $(($TenantsToProcess | Measure-Object).count) Tenants" }
+
                 }
             } catch {
                 $Results = [pscustomobject]@{'Results' = "Could not start NinjaOne Sync: $($_.Exception.Message)" }
