@@ -49,18 +49,17 @@ function Add-CIPPDbItem {
             if ($null -eq $Item) { continue }
             $ItemId = $Item.ExternalDirectoryObjectId ?? $Item.id ?? $Item.Identity ?? $Item.skuId ?? $Item.userPrincipalName ?? [guid]::NewGuid().ToString()
             $RowKey = "$Type-$ItemId" -replace '[/\\#?]', '_' -replace '[\u0000-\u001F\u007F-\u009F]', ''
-            if ($NewRowKeys.Add($RowKey)) {
-                $Batch.Add(@{
-                        PartitionKey = $TenantFilter
-                        RowKey       = $RowKey
-                        Data         = [string]($Item | ConvertTo-Json -Depth 10 -Compress)
-                        Type         = $Type
-                    })
-                if ($Batch.Count -ge 500) {
-                    $null = Add-CIPPAzDataTableEntity @Table -Entity $Batch.ToArray() -Force
-                    $TotalProcessed += $Batch.Count
-                    $Batch.Clear()
-                }
+            [void]$NewRowKeys.Add($RowKey)
+            $Batch.Add(@{
+                    PartitionKey = $TenantFilter
+                    RowKey       = $RowKey
+                    Data         = [string]($Item | ConvertTo-Json -Depth 10 -Compress)
+                    Type         = $Type
+                })
+            if ($Batch.Count -ge 500) {
+                $null = Add-CIPPAzDataTableEntity @Table -Entity $Batch.ToArray() -Force
+                $TotalProcessed += $Batch.Count
+                $Batch.Clear()
             }
         }
     }
