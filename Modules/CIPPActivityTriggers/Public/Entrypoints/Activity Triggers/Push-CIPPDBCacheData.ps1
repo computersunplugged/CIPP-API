@@ -65,6 +65,14 @@ function Push-CIPPDBCacheData {
             Write-LogMessage -API 'CIPPDBCache' -tenant $TenantFilter -message "Compliance license check failed: $($_.Exception.Message)" -sev Warning -LogData $ErrorMessage
         }
 
+        $DefenderCapable = $false
+        try {
+        } catch {
+            $ErrorMessage = Get-CippException -Exception $_
+            Write-LogMessage -API 'CIPPDBCache' -tenant $TenantFilter -message "Compliance license check failed: $($_.Exception.Message)" -sev Warning -LogData $ErrorMessage
+        }
+
+
         Write-Information "License capabilities for $TenantFilter - Intune: $IntuneCapable, CA: $ConditionalAccessCapable, P2: $AzureADPremiumP2Capable, Exchange: $ExchangeCapable, Compliance: $ComplianceCapable"
 
         # Build grouped collection tasks — one activity per license category instead of one per cache type
@@ -172,6 +180,18 @@ function Push-CIPPDBCacheData {
                 })
         } else {
             Write-Host "Skipping Compliance data collection for $TenantFilter - no required license"
+        }
+
+         if ($DefenderCapable) {
+            $Tasks.Add(@{
+                    FunctionName   = 'ExecCIPPDBCache'
+                    CollectionType = 'Defender'
+                    TenantFilter   = $TenantFilter
+                    QueueId        = $QueueId
+                    QueueName      = "DB Cache Compliance - $TenantFilter"
+                })
+        } else {
+            Write-Host "Skipping Defender data collection for $TenantFilter - no required license"
         }
 
         Write-Information "Built $($Tasks.Count) grouped cache tasks for tenant $TenantFilter (down from individual per-type tasks)"
