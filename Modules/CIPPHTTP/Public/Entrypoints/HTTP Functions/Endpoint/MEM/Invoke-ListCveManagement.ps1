@@ -1,4 +1,4 @@
-function Invoke-ListCippCveManagement {
+function Invoke-ListCveManagement {
     <#
     .FUNCTIONALITY
         Entrypoint
