@@ -12,7 +12,7 @@ function Invoke-ListCippCveManagement {
     $TenantFilter = $Request.Query.tenantFilter
 
     try {
-        $CveCacheTable      = Get-CIPPTable -TableName 'CveCache'
+        $CveCacheTable      = Get-CIPPTable -TableName 'CippReportingDB'
         $CveExceptionsTable = Get-CIPPTable -TableName 'CveExceptions'
 
         $Filter = if ($TenantFilter -and $TenantFilter -ne 'AllTenants') {
