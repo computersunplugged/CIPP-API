@@ -343,5 +343,10 @@
     "type": "CopilotUserCountTrend",
     "friendlyName": "Copilot User Count Trend",
     "description": "Daily Copilot active user count trend (7-day period)"
+  },
+  {
+    "type": "DefenderCVEs",
+    "friendlyName": "Defender CVEs",
+    "description": "All Defender CVEs for Devices"
   }
 ]

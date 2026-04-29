@@ -31,7 +31,7 @@ function Invoke-CIPPDBCacheCollection {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [ValidateSet('Graph', 'ExchangeConfig', 'ExchangeData', 'ConditionalAccess', 'IdentityProtection', 'Intune', 'Compliance', 'CopilotUsage')]
+        [ValidateSet('Graph', 'ExchangeConfig', 'ExchangeData', 'ConditionalAccess', 'IdentityProtection', 'Intune', 'Compliance', 'CopilotUsage', 'Defender')]
         [string]$CollectionType,
 
         [Parameter(Mandatory = $true)]
@@ -125,6 +125,9 @@ function Invoke-CIPPDBCacheCollection {
             'CopilotUserCountSummary'
             'CopilotUserCountTrend'
             'CopilotReadinessActivity'
+        )
+        Defender           = @(
+            'DefenderCVEs'
         )
     }
 
