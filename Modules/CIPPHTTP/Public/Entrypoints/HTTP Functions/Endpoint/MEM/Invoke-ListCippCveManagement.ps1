@@ -7,11 +7,26 @@ function Invoke-ListCippCveManagement {
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
-
-    $APIName      = $Request.Params.CIPPEndpoint
+    # Interact with query parameters or the body of the request.
     $TenantFilter = $Request.Query.tenantFilter
+    $UseReportDB = $Request.Query.UseReportDB
+
+    #$APIName      = $Request.Params.CIPPEndpoint
 
     try {
+        $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -ErrorAction Stop
+        $StatusCode = [HttpStatusCode]::OK
+    } catch {
+        Write-Host "Error retrieving CVEs from report database: $($_.Exception.Message)"
+        $StatusCode = [HttpStatusCode]::InternalServerError
+        $GraphRequest = $_.Exception.Message
+    }
+
+    return ([HttpResponseContext]@{
+                    StatusCode = $StatusCode
+                    Body       = @($GraphRequest)
+    })
+
         $CveCacheTable      = Get-CIPPTable -TableName 'CippReportingDB'
         $CveExceptionsTable = Get-CIPPTable -TableName 'CveExceptions'
 
@@ -21,11 +36,11 @@ function Invoke-ListCippCveManagement {
             $null
         }
 
-        $CveEntries = if ($Filter) {
-            Get-CIPPAzDataTableEntity @CveCacheTable -Filter $Filter
-        } else {
-            Get-CIPPAzDataTableEntity @CveCacheTable
-        }
+        #$CveEntries = if ($Filter) {
+        #    Get-CIPPAzDataTableEntity @CveCacheTable -Filter $Filter
+        #} else {
+        #    Get-CIPPAzDataTableEntity @CveCacheTable
+        #}
 
         $AllExceptions   = Get-CIPPAzDataTableEntity @CveExceptionsTable
         $ExceptionsByCve = @{}
@@ -46,7 +61,7 @@ function Invoke-ListCippCveManagement {
 
         $SeverityOrder = @{ 'Critical' = 1; 'High' = 2; 'Medium' = 3; 'Low' = 4 }
 
-        $SortedCves = $CveEntries | Group-Object -Property cveId | ForEach-Object {
+        $SortedCves = $GraphRequest | Group-Object -Property cveId | ForEach-Object {
             $CveGroup   = $_.Group
             $FirstEntry = $CveGroup[0]
 
