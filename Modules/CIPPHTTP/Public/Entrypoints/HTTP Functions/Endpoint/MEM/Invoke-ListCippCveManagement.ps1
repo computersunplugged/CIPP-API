@@ -11,7 +11,7 @@ function Invoke-ListCippCveManagement {
     $TenantFilter = $Request.Query.tenantFilter
     $UseReportDB = $Request.Query.UseReportDB
 
-    #$APIName      = $Request.Params.CIPPEndpoint
+    $APIName      = $Request.Params.CIPPEndpoint
 
     try {
         $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -ErrorAction Stop
