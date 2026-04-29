@@ -1,4 +1,4 @@
-function Push-CIPPDBCacheData {
+function Push-CIPPDBTempCacheData {
     <#
     .SYNOPSIS
         List cache collection tasks for a single tenant (Phase 1 of fan-out/fan-in)
@@ -14,8 +14,6 @@ function Push-CIPPDBCacheData {
         Does NOT start sub-orchestrators. The returned items are aggregated by the PostExecution
         function (CIPPDBCacheApplyBatch) and executed in a single flat orchestrator.
 
-    .FUNCTIONALITY
-        Entrypoint
     #>
     [CmdletBinding()]
     param($Item)
