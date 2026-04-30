@@ -37,8 +37,8 @@ function Invoke-ListCVEManagement {
     #        $null
     #    }
 
-        $CveEntries = if ($Filter) {
-            Get-CIPPAzDataTableEntity @CveCacheTable -Filter $Filter
+    #    $CveEntries = if ($Filter) {
+    #        Get-CIPPAzDataTableEntity @CveCacheTable -Filter $Filter
         #} else {
         #    Get-CIPPAzDataTableEntity @CveCacheTable
         #}
