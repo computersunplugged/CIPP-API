@@ -1,4 +1,4 @@
-function Invoke-ListCveManagement {
+function Invoke-ListCVEManagement {
     <#
     .FUNCTIONALITY
         Entrypoint
@@ -11,12 +11,12 @@ function Invoke-ListCveManagement {
     $TenantFilter = $Request.Query.tenantFilter
     $UseReportDB = $Request.Query.UseReportDB
 
-       Write-LogMessage -API 'Invoke-ListCveManagement' -tenant $TenantFilter -message "Top of the page" -sev 'info'
+       Write-LogMessage -API 'Invoke-ListCVEManagement' -tenant $TenantFilter -message "Top of the page" -sev 'info'
        Write-Host "Host instead"
     try {
         $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -ErrorAction Stop
         $StatusCode = [HttpStatusCode]::OK
-        Write-LogMessage -API 'Invoke-ListCveManagement' -tenant $TenantFilter -message "running cve report" -sev 'info'
+        Write-LogMessage -API 'Invoke-ListCVEManagement' -tenant $TenantFilter -message "running cve report" -sev 'info'
     } catch {
         Write-Host "Error retrieving CVEs from report database: $($_.Exception.Message)"
         $StatusCode = [HttpStatusCode]::InternalServerError
