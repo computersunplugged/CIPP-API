@@ -3,7 +3,7 @@ function Invoke-ListCVEManagement {
     .FUNCTIONALITY
         Entrypoint
     .ROLE
-        Security.Defender.Read
+        Endpoint.MEM.Read
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
