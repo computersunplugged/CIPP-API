@@ -5,6 +5,9 @@ function Invoke-ListCVEManagement {
     .ROLE
         Endpoint.Security.Read
     #>
+           Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "Top of the page" -sev 'info'
+       Write-Host "Host instead"
+    <#
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
     # Interact with query parameters or the body of the request.
@@ -28,3 +31,4 @@ function Invoke-ListCVEManagement {
                     Body       = @($GraphRequest)
                     Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "$GraphRequest" -sev 'info'
     })
+#>
