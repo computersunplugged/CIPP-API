@@ -11,7 +11,7 @@ function Invoke-ListCveManagement {
     $TenantFilter = $Request.Query.tenantFilter
     $UseReportDB = $Request.Query.UseReportDB
 
-    $APIName      = $Request.Params.CIPPEndpoint
+    #$APIName      = $Request.Params.CIPPEndpoint
 
     try {
         $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -ErrorAction Stop
@@ -36,8 +36,8 @@ function Invoke-ListCveManagement {
     #        $null
     #    }
 
-        #$CveEntries = if ($Filter) {
-        #    Get-CIPPAzDataTableEntity @CveCacheTable -Filter $Filter
+        $CveEntries = if ($Filter) {
+            Get-CIPPAzDataTableEntity @CveCacheTable -Filter $Filter
         #} else {
         #    Get-CIPPAzDataTableEntity @CveCacheTable
         #}

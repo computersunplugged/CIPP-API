@@ -65,6 +65,7 @@ function Get-CIPPCVEReport {
             $AllCVEs.Add($CVEData)
         }
 
+        Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message $AllCVEs
         return $AllCVEs | Sort-Object -Property displayName
 
     } catch {
