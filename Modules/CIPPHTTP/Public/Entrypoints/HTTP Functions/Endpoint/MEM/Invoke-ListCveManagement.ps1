@@ -11,11 +11,12 @@ function Invoke-ListCveManagement {
     $TenantFilter = $Request.Query.tenantFilter
     $UseReportDB = $Request.Query.UseReportDB
 
-    #$APIName      = $Request.Params.CIPPEndpoint
-
+       Write-LogMessage -API 'Invoke-ListCveManagement' -tenant $TenantFilter -message "Top of the page" -sev 'info'
+       Write-Host "Host instead"
     try {
         $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -ErrorAction Stop
         $StatusCode = [HttpStatusCode]::OK
+        Write-LogMessage -API 'Invoke-ListCveManagement' -tenant $TenantFilter -message "running cve report" -sev 'info'
     } catch {
         Write-Host "Error retrieving CVEs from report database: $($_.Exception.Message)"
         $StatusCode = [HttpStatusCode]::InternalServerError
@@ -116,7 +117,7 @@ function Invoke-ListCveManagement {
 
 #    } catch {
 #        $ErrorMessage = Get-CippException -Exception $_
-#        Write-LogMessage -API $APIName -tenant $TenantFilter -message "Failed to retrieve CVE data: $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
+#        Write-LogMessage -API 'Invoke-ListCveManagement' -tenant $TenantFilter -message "Failed to retrieve CVE data: $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
 #        return [HttpResponseContext]@{
 #            StatusCode = [HttpStatusCode]::InternalServerError
 #            Body       = @()
