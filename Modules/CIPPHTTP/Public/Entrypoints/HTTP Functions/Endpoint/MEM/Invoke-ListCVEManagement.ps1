@@ -15,7 +15,7 @@ function Invoke-ListCVEManagement {
        Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "Top of the page" -sev 'info'
        Write-Host "Host instead"
     try {
-        $GraphRequest = Get-CIPPMailboxesReport -TenantFilter $TenantFilter -ErrorAction Stop
+        $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -ErrorAction Stop
         $StatusCode = [HttpStatusCode]::OK
         Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "running cve report" -sev 'info'
     } catch {
