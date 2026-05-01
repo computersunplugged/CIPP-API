@@ -82,22 +82,13 @@ function Set-CIPPDBCacheDefenderCVEs {
 
         $SuccessCount = 0
         $FailCount    = 0
-        $BatchSize    = 50
-        $TotalBatches = [Math]::Ceiling($Entities.Count / $BatchSize)
-
-        for ($i = 0; $i -lt $Entities.Count; $i += $BatchSize) {
-            $BatchNumber = [Math]::Floor($i / $BatchSize) + 1
-            $Batch       = $Entities[$i..[Math]::Min($i + $BatchSize - 1, $Entities.Count - 1)]
 
             try {
-                Add-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' -Data $Batch
-                $SuccessCount += $Batch.Count
+                Add-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' -Data $Entities
             } catch {
                 $ErrorMessage  = Get-CippException -Exception $_
-                $FailCount    += $Batch.Count
-                Write-LogMessage -API 'CIPPDBCache' -tenant $TenantFilter -message "Batch $BatchNumber/$TotalBatches failed: $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
+                Write-LogMessage -API 'CIPPDBCache' -tenant $TenantFilter -message "CVE Cache failed: $($ErrorMessage.NormalizedError)" -sev 'Error' -LogData $ErrorMessage
             }
-        }
 
         $UniqueCves    = ($Entities | Select-Object -ExpandProperty cveId -Unique).Count
 
