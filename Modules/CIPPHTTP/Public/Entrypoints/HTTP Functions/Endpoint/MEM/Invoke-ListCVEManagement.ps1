@@ -37,7 +37,7 @@ if ($DefenderCapable) {
     })
     Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "$GraphRequest" -sev 'info'
             } else {
-            Write-Host "Skipping Defender data collection for $TenantFilter - no required license"
+            Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "Skipping Defender data collection for $TenantFilter - no required license" -sev 'info'
         }
 }
 
