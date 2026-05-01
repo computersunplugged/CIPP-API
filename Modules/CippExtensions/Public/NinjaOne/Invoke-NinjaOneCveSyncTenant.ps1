@@ -62,7 +62,7 @@ function Invoke-NinjaOneCveSyncTenant {
         }
 
         # Pull Defender TVM data
-        $AllVulns = Get-DefenderTvmRaw -TenantId $TenantFilter -MaxPages 0
+        $AllVulns = Get-CIPPCVEReport -TenantId $TenantFilter -MaxPages 0
 
         if (-not $AllVulns) {
             Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message 'No vulnerability data returned — skipping' -sev 'Warning'
