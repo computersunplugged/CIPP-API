@@ -12,8 +12,15 @@ function Invoke-ListCVEManagement {
     $TenantFilter = $Request.Query.tenantFilter
     $UseReportDB = $Request.Query.UseReportDB
 
-       Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "Top of the page" -sev 'info'
-       Write-Host "Host instead"
+        $DefenderCapable = $false
+        try {
+            $DefenderCapable = Test-CIPPStandardLicense -StandardName 'DefenderLicenseCheck' -TenantFilter $TenantFilter -RequiredCapabilities @('DEFENDER_FOR_ENDPOINT_PLAN_1', 'DEFENDER_FOR_ENDPOINT_PLAN_2', 'DEFENDER_FOR_BUSINESS') -SkipLog
+        } catch {
+            $ErrorMessage = Get-CippException -Exception $_
+            Write-LogMessage -API 'CIPPDBCache' -tenant $TenantFilter -message "Compliance license check failed: $($_.Exception.Message)" -sev Warning -LogData $ErrorMessage
+        }
+
+if ($DefenderCapable) {
     try {
         $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -ErrorAction Stop
         $StatusCode = [HttpStatusCode]::OK
@@ -29,4 +36,8 @@ function Invoke-ListCVEManagement {
                     Body       = @($GraphRequest)
     })
     Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "$GraphRequest" -sev 'info'
+            } else {
+            Write-Host "Skipping Defender data collection for $TenantFilter - no required license"
+        }
 }
+

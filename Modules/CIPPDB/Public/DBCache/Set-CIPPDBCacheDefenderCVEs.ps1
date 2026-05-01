@@ -43,7 +43,6 @@ function Set-CIPPDBCacheDefenderCVEs {
         Write-LogMessage -API 'CveCacheRefresh' -tenant $TenantFilter -message "Retrieved $($AllVulns.Count) CVE records from Defender TVM" -sev 'Info'
 
         $Entities     = [System.Collections.Generic.List[object]]::new()
-        $SkippedCount = 0
 
         foreach ($Vuln in $AllVulns) {
 
