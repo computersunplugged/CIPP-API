@@ -14,7 +14,7 @@ function Invoke-ListCVEManagement {
 
         $DefenderCapable = $false
         try {
-            $DefenderCapable = Test-CIPPStandardLicense -StandardName 'DefenderLicenseCheck' -TenantFilter $TenantFilter -RequiredCapabilities @('DEFENDER_FOR_ENDPOINT_PLAN_1', 'DEFENDER_FOR_ENDPOINT_PLAN_2', 'DEFENDER_FOR_BUSINESS') -SkipLog
+            $DefenderCapable = Test-CIPPStandardLicense -StandardName 'DefenderLicenseCheck' -TenantFilter $TenantFilter -RequiredCapabilities @('MDE_SMB','WINDEFATP') -SkipLog
         } catch {
             $ErrorMessage = Get-CippException -Exception $_
             Write-LogMessage -API 'CIPPDBCache' -tenant $TenantFilter -message "Compliance license check failed: $($_.Exception.Message)" -sev Warning -LogData $ErrorMessage
