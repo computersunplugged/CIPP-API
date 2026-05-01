@@ -32,6 +32,8 @@ function Invoke-ListCVEManagement {
             $null
         }
 
+        $CveEntries = $GraphRequest
+
         $AllExceptions   = Get-CIPPAzDataTableEntity @CveExceptionsTable
         $ExceptionsByCve = @{}
 
@@ -83,8 +85,6 @@ function Invoke-ListCVEManagement {
                 softwareVersion            = $FirstEntry.softwareVersion
                 deviceCount                = $DeviceCount
                 tenantCount                = $TenantCount
-                exceptionStatus            = $ExceptionStatus
-                hasException               = [bool]$HasException
                 affectedTenants            = ($CveGroup | Select-Object -ExpandProperty customerId -Unique) -join ', '
                 affectedDevices            = ($CveGroup | Select-Object -ExpandProperty deviceName -Unique | Select-Object -First 10) -join ', '
                 exceptions                 = $Exceptions
