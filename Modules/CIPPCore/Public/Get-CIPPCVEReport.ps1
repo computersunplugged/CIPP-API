@@ -57,7 +57,7 @@ function Get-CIPPCVEReport {
         # Parse CVE data
         $AllCVEs = [System.Collections.Generic.List[PSCustomObject]]::new()
         foreach ($Item in $CVEItems | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }) {
-            $CVEData = $Item.Data
+            $CVEData = $Item.Data | ConvertFrom-Json
 
             # Add cache timestamp
             $CVEData | Add-Member -NotePropertyName 'CacheTimestamp' -NotePropertyValue $CacheTimestamp -Force
