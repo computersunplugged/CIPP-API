@@ -70,7 +70,6 @@ function Get-CIPPCVEReport {
                 $CVEData | Add-Member -NotePropertyName 'CacheTimestamp' -NotePropertyValue $CacheTimestamp -Force
 
                 $AllCVEs.Add($CVEData)
-                }
             }
 
             Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message "$Property"
