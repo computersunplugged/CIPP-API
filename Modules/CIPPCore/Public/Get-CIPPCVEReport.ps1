@@ -61,9 +61,9 @@ function Get-CIPPCVEReport {
                 # Special handling for deviceName - create array of objects
 
                 $Property = $Item.Group | Get-Member -MemberType Properties | Select-Object -ExpandProperty Name | Sort-Object -Unique
-                if ($property -eq 'deviceName'){
-                $CVEData = @($Item.group.$property | ForEach-Object { @{ $property = $_ } })
-                }
+                #if ($property -eq 'deviceName'){
+                #$CVEData = @($Item.group.$property | ForEach-Object { @{ $property = $_ } })
+                #}
                 $CVEData = $Item.Data | ConvertFrom-Json
 
                 # Add cache timestamp
