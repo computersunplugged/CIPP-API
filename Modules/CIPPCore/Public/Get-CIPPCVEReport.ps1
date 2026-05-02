@@ -43,31 +43,39 @@ function Get-CIPPCVEReport {
                 }
             }
             return $AllResults
+
+            # Get CVEs from reporting DB
+            $CVEItems = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
+
+            if (-not $CVEItems) {
+                throw 'No CVE data found in reporting database. Sync the report data first.'
+            }
+
+            # Get the most recent cache timestamp
+            $CacheTimestamp = ($CVEItems | Where-Object { $_.Timestamp } | Sort-Object Timestamp -Descending | Select-Object -First 1).Timestamp
+
+            # Parse CVE data
+            $AllCVEs = [System.Collections.Generic.List[PSCustomObject]]::new()
+            foreach ($Item in $CVEItems | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }) {
+
+                # Special handling for deviceName - create array of objects
+
+                $Property = $Item.Group | Get-Member -MemberType Properties | Select-Object -ExpandProperty Name | Sort-Object -Unique
+                if ($property -eq 'deviceName'){
+                $CVEData = @($Item.group.$property | ForEach-Object { @{ $property = $_ } })
+                } else {
+                $CVEData = $Item.Data | ConvertFrom-Json
+
+                # Add cache timestamp
+                $CVEData | Add-Member -NotePropertyName 'CacheTimestamp' -NotePropertyValue $CacheTimestamp -Force
+
+                $AllCVEs.Add($CVEData)
+                }
+            }
+
+            Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message $AllCVEs
+            return $AllCVEs | Sort-Object -Property displayName
         }
-
-        # Get CVEs from reporting DB
-        $CVEItems = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
-        if (-not $CVEItems) {
-            throw 'No CVE data found in reporting database. Sync the report data first.'
-        }
-
-        # Get the most recent cache timestamp
-        $CacheTimestamp = ($CVEItems | Where-Object { $_.Timestamp } | Sort-Object Timestamp -Descending | Select-Object -First 1).Timestamp
-
-        # Parse CVE data
-        $AllCVEs = [System.Collections.Generic.List[PSCustomObject]]::new()
-        foreach ($Item in $CVEItems | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }) {
-            $CVEData = $Item.Data | ConvertFrom-Json
-
-            # Add cache timestamp
-            $CVEData | Add-Member -NotePropertyName 'CacheTimestamp' -NotePropertyValue $CacheTimestamp -Force
-
-            $AllCVEs.Add($CVEData)
-        }
-
-        Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message $AllCVEs
-        return $AllCVEs | Sort-Object -Property displayName
-
     } catch {
         Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message "Failed to generate CVE report: $($_.Exception.Message)" -sev Error
         throw
