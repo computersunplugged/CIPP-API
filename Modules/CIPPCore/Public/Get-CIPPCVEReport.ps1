@@ -60,7 +60,7 @@ function Get-CIPPCVEReport {
 
                 # Special handling for deviceName - create array of objects
 
-                $Property = $Item.Group | Get-Member -MemberType Properties | Select-Object -ExpandProperty Name | Sort-Object -Unique
+                #$Property = $Item.Group | Get-Member -MemberType Properties | Select-Object -ExpandProperty Name | Sort-Object -Unique
                 #if ($property -eq 'deviceName'){
                 #$CVEData = @($Item.group.$property | ForEach-Object { @{ $property = $_ } })
                 #}
@@ -72,7 +72,7 @@ function Get-CIPPCVEReport {
                 $AllCVEs.Add($CVEData)
             }
 
-            Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message "$Property"
+            Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message "This is the $Property" -sev Info
             return $AllCVEs | Sort-Object -Property displayName
         }
     } catch {
