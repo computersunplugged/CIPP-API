@@ -1846,6 +1846,10 @@ function Invoke-NinjaOneTenantSync {
 
 
             ### CIPP Applied Standards Cards
+            $ModuleBase = Get-Module CIPPExtensions | Select-Object -ExpandProperty ModuleBase
+            $CIPPRoot = (Get-Item $ModuleBase).Parent.Parent.FullName
+            Set-Location $CIPPRoot
+
             try {
                 $StandardsDefinitions = Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/KelvinTegelaar/CIPP/refs/heads/main/src/data/standards.json'
                 $AppliedStandards = Get-CIPPStandards -TenantFilter $Customer.defaultDomainName
@@ -2216,7 +2220,8 @@ function Invoke-NinjaOneTenantSync {
                     if ([string]::IsNullOrWhiteSpace($DeviceIdHeader) -or [string]::IsNullOrWhiteSpace($CveIdHeader)) {
                         Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message "CVE sync skipped — scan group missing required header config" -sev 'Warning'
                     } else {
-                        $AllVulns = Get-DefenderTvmRaw -TenantId $TenantFilter -MaxPages 0
+                        $RawVulns = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
+                        $AllVulns = $RawVulns.Data | ConvertFrom-Json
 
                         if (-not $AllVulns) {
                             Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message 'CVE sync — no vulnerability data returned' -sev 'Warning'
@@ -2236,12 +2241,19 @@ function Invoke-NinjaOneTenantSync {
                             $SkippedCount = 0
 
                             foreach ($Item in $AllVulns) {
-                                if ([string]::IsNullOrWhiteSpace($Item.cveId) -or [string]::IsNullOrWhiteSpace($Item.deviceName)) {
+                                if ([string]::IsNullOrWhiteSpace($Item.cveId)) {
                                     $SkippedCount++
                                     continue
                                 }
+                                if ($Item.deviceDetailsJson) {
+                                    $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
+                                    $AffectedDevices = [System.Collections.Generic.List[PSCustomObject]]::new()
+                                    foreach ($Dev in $Devices) {
+                                        [void]$AffectedDevices.Add(@{ deviceName = $Dev.deviceName })
+                                        }
+                                }
                                 [void]$CsvRows.Add([PSCustomObject]@{
-                                    $DeviceIdHeader = $Item.deviceName.Trim()
+                                    $DeviceIdHeader = $Dev.deviceName.Trim()
                                     $CveIdHeader    = $Item.cveId.Trim()
                                 })
                             }
