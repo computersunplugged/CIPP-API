@@ -2269,7 +2269,8 @@ function Invoke-NinjaOneTenantSync {
                                 $PollUri   = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId"
                                 $CveResp   = Invoke-NinjaOneVulnCsvUpload -Uri $UploadUri -PollUri $PollUri -CsvBytes $CsvBytes -Headers @{ Authorization = "Bearer $($Token.access_token)" }
 
-                                Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "$CsvBytes" -sev 'Info'
+                                $Output = $CsvBytes.Data
+                                Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "$Output" -sev 'Info'
 
                                 $FinalStatus    = $CveResp.status ?? 'unknown'
                                 $ProcessedCount = $CveResp.recordsProcessed ?? '?'
