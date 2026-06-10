@@ -2249,11 +2249,11 @@ function Invoke-NinjaOneTenantSync {
                                     $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
                                     $AffectedDevices = [System.Collections.Generic.List[PSCustomObject]]::new()
                                     foreach ($Dev in $Devices) {
-                                        [void]$AffectedDevices.Add($Dev.deviceName)
+                                        [void]$AffectedDevices.Add( @{ deviceName = $Dev.deviceName })
                                         }
                                 }
                                 [void]$CsvRows.Add([PSCustomObject]@{
-                                    $DeviceIdHeader = $AffectedDevices | ConvertFrom-Json
+                                    $DeviceIdHeader = $AffectedDevices.deviceName.Trim()
                                     $CveIdHeader    = $Item.cveId.Trim()
                                 })
                             }
