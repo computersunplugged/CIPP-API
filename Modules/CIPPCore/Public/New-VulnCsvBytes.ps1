@@ -27,5 +27,9 @@ function New-VulnCsvBytes {
         [void]$Sb.AppendLine(($Cells -join ','))
     }
 
+
+    $Output = $Sb.ToString()
+    Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "$Output" -sev 'Info'
+
     return [System.Text.Encoding]::UTF8.GetBytes($Sb.ToString())
 }
