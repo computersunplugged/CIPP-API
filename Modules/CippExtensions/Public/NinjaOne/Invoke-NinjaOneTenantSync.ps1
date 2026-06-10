@@ -2247,15 +2247,22 @@ function Invoke-NinjaOneTenantSync {
                                 }
                                 if ($Item.deviceDetailsJson) {
                                     $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
-                                    $AffectedDevices = [System.Collections.Generic.List[PSCustomObject]]::new()
+                                    #$AffectedDevices = [System.Collections.Generic.List[PSCustomObject]]::new()
                                     foreach ($Dev in $Devices) {
-                                        [void]$AffectedDevices.Add( @{ deviceName = $Dev.deviceName })
-                                        }
+                                        <#[void]$AffectedDevices.Add( @{
+                                            deviceName = $Dev.deviceName
+                                        })#>
+                                        [void]$CsvRows.Add([PSCustomObject]@{
+                                        $DeviceIdHeader = $Dev.deviceName.Trim()
+                                        $CveIdHeader    = $Item.cveId.Trim()
+                                        })
+                                    }
                                 }
-                                [void]$CsvRows.Add([PSCustomObject]@{
+                                <#[void]$CsvRows.Add([PSCustomObject]@{
                                     $DeviceIdHeader = $AffectedDevices.deviceName.Trim()
                                     $CveIdHeader    = $Item.cveId.Trim()
                                 })
+                                    #>
                             }
 
                             if ($SkippedCount -gt 0) {
@@ -2268,9 +2275,6 @@ function Invoke-NinjaOneTenantSync {
                                 $UploadUri = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId/upload"
                                 $PollUri   = "$NinjaBaseUrl/vulnerability/scan-groups/$ResolvedScanGroupId"
                                 $CveResp   = Invoke-NinjaOneVulnCsvUpload -Uri $UploadUri -PollUri $PollUri -CsvBytes $CsvBytes -Headers @{ Authorization = "Bearer $($Token.access_token)" }
-
-                                $Output = $CsvBytes.Data
-                                Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "$Output" -sev 'Info'
 
                                 $FinalStatus    = $CveResp.status ?? 'unknown'
                                 $ProcessedCount = $CveResp.recordsProcessed ?? '?'
