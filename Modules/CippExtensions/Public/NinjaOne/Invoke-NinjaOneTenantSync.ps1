@@ -2253,7 +2253,7 @@ function Invoke-NinjaOneTenantSync {
                                         }
                                 }
                                 [void]$CsvRows.Add([PSCustomObject]@{
-                                    $DeviceIdHeader = $Dev.deviceName.Trim()
+                                    $DeviceIdHeader = $AffectedDevices.Trim()
                                     $CveIdHeader    = $Item.cveId.Trim()
                                 })
                             }
