@@ -77,6 +77,8 @@ function Invoke-ListCVEManagement {
                         softwareName               = $Item.softwareName
                         softwareVendor             = $Item.softwareVendor
                         softwareVersion            = $Item.softwareVersion
+                        registryPaths              = $Item.registryPaths
+                        diskPaths                  = $Item.diskPaths
                         lastUpdated                = $Item.lastUpdated
                         TotalDeviceCount           = 0
                         AffectedTenantsList        = [System.Collections.Generic.List[object]]::new()
@@ -126,6 +128,8 @@ function Invoke-ListCVEManagement {
                     softwareVersion            = $Target.softwareVersion
                     deviceCount                = $Target.TotalDeviceCount
                     tenantCount                = $Target.TotalTenantGroupCount
+                    registryPaths              = $Target.registryPaths
+                    diskPaths                  = $Target.diskPaths
                     exceptionStatus            = $ExceptionStatus
                     hasException               = $HasException
                     affectedTenants            = $Target.AffectedTenantsList
