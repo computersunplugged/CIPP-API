@@ -81,6 +81,8 @@ function Invoke-ListCVEManagement {
                         TotalDeviceCount           = 0
                         AffectedTenantsList        = [System.Collections.Generic.List[object]]::new()
                         AffectedDevicesList        = [System.Collections.Generic.List[object]]::new()
+                        DiskPathList               = [System.Collections.Generic.List[object]]::new()
+                        RegistryPathList           = [System.Collections.Generic.List[object]]::new()
                         ExceptionMatchCount        = 0
                         TotalTenantGroupCount      = 0
                         ExceptionSources           = [System.Collections.Generic.HashSet[string]]::new()
@@ -96,9 +98,9 @@ function Invoke-ListCVEManagement {
                 if ($Item.deviceDetailsJson) {
                     $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
                     foreach ($Dev in $Devices) {
-                        [void]$CveGroup.AffectedDevicesList.Add(@{ deviceName    = $Dev.deviceName
-                                                                   registryPaths = $Dev.registryPaths
-                                                                   diskPaths     = $Dev.diskPaths })
+                        [void]$CveGroup.AffectedDevicesList.Add(@{ deviceName    = $Dev.deviceName })
+                        [void]$CveGroup.RegistryPathList.Add(@{ registryPaths = $Dev.registryPaths })
+                        [void]$CveGroup.DiskPathList.Add(@{ diskPaths     = $Dev.diskPaths })
                         $CveGroup.TotalDeviceCount ++
                         }
                 }
@@ -128,12 +130,12 @@ function Invoke-ListCVEManagement {
                     softwareVersion            = $Target.softwareVersion
                     deviceCount                = $Target.TotalDeviceCount
                     tenantCount                = $Target.TotalTenantGroupCount
-                    registryPaths              = $Target.AffectedDevicesList.registryPaths
-                    diskPaths                  = $Target.AffectedDevicesList.diskPaths
+                    registryPaths              = $Target.RegistryPathList
+                    diskPaths                  = $Target.DiskPathList
                     exceptionStatus            = $ExceptionStatus
                     hasException               = $HasException
                     affectedTenants            = $Target.AffectedTenantsList
-                    affectedDevices            = $Target.AffectedDevicesList.deviceName
+                    affectedDevices            = $Target.AffectedDevicesList
                     exceptionType              = if ($HasException){$Exceptions | ForEach-Object {
                                                         @{ customerId = $_.customerId
                                                         exceptionType = $_.exceptionType } } }else{''}
