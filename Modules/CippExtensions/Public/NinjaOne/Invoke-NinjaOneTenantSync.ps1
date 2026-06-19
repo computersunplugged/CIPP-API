@@ -2225,6 +2225,8 @@ function Invoke-NinjaOneTenantSync {
 
                         if (-not $AllVulns) {
                             Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message 'CVE sync — no vulnerability data returned' -sev 'Warning'
+                            $DeviceIdHeader = ""
+                            $CveIdHeader    = ""
                         } else {
                             $ExceptionsTable      = Get-CIPPTable -TableName 'CveExceptions'
                             $AllExceptions        = Get-CIPPAzDataTableEntity @ExceptionsTable
@@ -2247,22 +2249,13 @@ function Invoke-NinjaOneTenantSync {
                                 }
                                 if ($Item.deviceDetailsJson) {
                                     $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
-                                    #$AffectedDevices = [System.Collections.Generic.List[PSCustomObject]]::new()
                                     foreach ($Dev in $Devices) {
-                                        <#[void]$AffectedDevices.Add( @{
-                                            deviceName = $Dev.deviceName
-                                        })#>
                                         [void]$CsvRows.Add([PSCustomObject]@{
                                         $DeviceIdHeader = $Dev.deviceName.Trim()
                                         $CveIdHeader    = $Item.cveId.Trim()
                                         })
                                     }
                                 }
-                                <#[void]$CsvRows.Add([PSCustomObject]@{
-                                    $DeviceIdHeader = $AffectedDevices.deviceName.Trim()
-                                    $CveIdHeader    = $Item.cveId.Trim()
-                                })
-                                    #>
                             }
 
                             if ($SkippedCount -gt 0) {
