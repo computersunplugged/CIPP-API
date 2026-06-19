@@ -2222,11 +2222,13 @@ function Invoke-NinjaOneTenantSync {
                     } else {
                         $RawVulns = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
                         $AllVulns = $RawVulns.Data | ConvertFrom-Json
+                        $CsvRows  = [System.Collections.Generic.List[object]]::new()
 
                         if (-not $AllVulns) {
                             Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message 'CVE sync — no vulnerability data returned' -sev 'Warning'
-                            $DeviceIdHeader = "Null"
-                            $CveIdHeader    = "Null"
+                            [void]$CsvRows.Add([PSCustomObject]@{
+                                        $DeviceIdHeader = ""
+                                        $CveIdHeader    = ""})
                         } else {
                             $ExceptionsTable      = Get-CIPPTable -TableName 'CveExceptions'
                             $AllExceptions        = Get-CIPPAzDataTableEntity @ExceptionsTable
@@ -2239,7 +2241,6 @@ function Invoke-NinjaOneTenantSync {
                                 Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message "CVE sync — filtered $($BeforeCount - $AllVulns.Count) excepted CVEs, $($AllVulns.Count) remaining" -sev 'Info'
                             }
 
-                            $CsvRows      = [System.Collections.Generic.List[object]]::new()
                             $SkippedCount = 0
 
                             foreach ($Item in $AllVulns) {
