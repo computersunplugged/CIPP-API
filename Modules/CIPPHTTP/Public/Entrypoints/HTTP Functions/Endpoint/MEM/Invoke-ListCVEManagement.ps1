@@ -77,6 +77,7 @@ function Invoke-ListCVEManagement {
                         softwareName               = $Item.softwareName
                         softwareVendor             = $Item.softwareVendor
                         softwareVersion            = $Item.softwareVersion
+                        lastUpdated                = $Item.lastUpdated
                         TotalDeviceCount           = 0
                         AffectedTenantsList        = [System.Collections.Generic.List[object]]::new()
                         AffectedDevicesList        = [System.Collections.Generic.List[object]]::new()
