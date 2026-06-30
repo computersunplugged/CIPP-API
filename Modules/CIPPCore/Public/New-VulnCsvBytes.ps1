@@ -29,7 +29,7 @@ function New-VulnCsvBytes {
 
 
     $Output = $Sb.ToString()
-    Write-LogMessage -API 'NinjaCveSync' -tenant $TenantFilter -message "$Output" -sev 'Info'
+    Write-LogMessage -API 'CVEBytes' -tenant $TenantFilter -message "Output: $Output" -sev 'Info'
 
     return [System.Text.Encoding]::UTF8.GetBytes($Sb.ToString())
 }
