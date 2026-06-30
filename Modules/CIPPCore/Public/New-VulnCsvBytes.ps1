@@ -6,11 +6,14 @@ function New-VulnCsvBytes {
         Array of PSCustomObject where property names match the provided headers.
     .PARAMETER Headers
         Ordered list of column headers (and property names).
+    .PARAMETER TenantFilter
+    The tenant domain name for the csv
     #>
     [CmdletBinding()]
     param(
         [Parameter()][object[]]$Rows = @(),
-        [Parameter(Mandatory)][string[]]$Headers
+        [Parameter(Mandatory)][string[]]$Headers,
+        [Parameter(Mandatory = $true)][string]$TenantFilter
     )
 
     $Sb = [System.Text.StringBuilder]::new()
