@@ -99,8 +99,8 @@ function Invoke-ListCVEManagement {
                     $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
                     foreach ($Dev in $Devices) {
                         [void]$CveGroup.AffectedDevicesList.Add(@{ deviceName    = $Dev.deviceName })
-                        [void]$CveGroup.RegistryPathList.Add(@{ registryPaths = $Dev.registryPaths ?? ''})
-                        [void]$CveGroup.DiskPathList.Add(@{ diskPaths     = $Dev.diskPaths ?? ''})
+                        if(registryPaths){[void]$CveGroup.RegistryPathList.Add(@{ registryPaths = $Dev.registryPaths })}
+                        if(diskPaths){[void]$CveGroup.DiskPathList.Add(@{ diskPaths     = $Dev.diskPaths })}
                         $CveGroup.TotalDeviceCount ++
                         }
                 }
