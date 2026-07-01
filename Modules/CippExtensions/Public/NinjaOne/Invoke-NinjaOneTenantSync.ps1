@@ -2242,7 +2242,7 @@ function Invoke-NinjaOneTenantSync {
                             if ($SkippedCount -gt 0) {
                                 Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message "CVE sync — skipped $SkippedCount rows (missing deviceName or cveId)" -sev 'Warning'
                             }
-
+                            }
                             $CsvBytes = New-VulnCsvBytes -TenantFilter $TenantFilter -Rows $CsvRows -Headers @($DeviceIdHeader, $CveIdHeader)
 
                             if ($CsvBytes -and $CsvBytes.Length -gt 0) {
@@ -2263,7 +2263,7 @@ function Invoke-NinjaOneTenantSync {
                             } else {
                                 Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message 'CVE sync — failed to generate CSV bytes' -sev 'Warning'
                             }
-                        }
+                        #}
                     #}
                 }
             } catch {
