@@ -2207,7 +2207,7 @@ function Invoke-NinjaOneTenantSync {
                         if (-not $AllVulns) {
                             Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message 'CVE sync — no vulnerability data returned' -sev 'Warning'
                             [void]$CsvRows.Add([PSCustomObject]@{
-                                        $DeviceIdHeader = "affectedDevices,cveId"
+                                        $DeviceIdHeader = ""
                                         $CveIdHeader    = ""})
                         } else {
                             $ExceptionsTable      = Get-CIPPTable -TableName 'CveExceptions'
