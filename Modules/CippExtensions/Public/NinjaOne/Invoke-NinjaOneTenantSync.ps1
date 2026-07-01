@@ -2197,9 +2197,9 @@ function Invoke-NinjaOneTenantSync {
                     $DeviceIdHeader      = $ResolvedScanGroup.deviceIdHeader
                     $CveIdHeader         = $ResolvedScanGroup.cveIdHeader
 
-                    if ([string]::IsNullOrWhiteSpace($DeviceIdHeader) -or [string]::IsNullOrWhiteSpace($CveIdHeader)) {
+                    <#if ([string]::IsNullOrWhiteSpace($DeviceIdHeader) -or [string]::IsNullOrWhiteSpace($CveIdHeader)) {
                         Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message "CVE sync skipped — scan group missing required header config" -sev 'Warning'
-                    } else {
+                    } else {#>
                         $RawVulns = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
                         $AllVulns = $RawVulns.Data | ConvertFrom-Json
                         $CsvRows  = [System.Collections.Generic.List[object]]::new()
@@ -2207,7 +2207,7 @@ function Invoke-NinjaOneTenantSync {
                         if (-not $AllVulns) {
                             Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message 'CVE sync — no vulnerability data returned' -sev 'Warning'
                             [void]$CsvRows.Add([PSCustomObject]@{
-                                        $DeviceIdHeader = ""
+                                        $DeviceIdHeader = "affectedDevices,cveId"
                                         $CveIdHeader    = ""})
                         } else {
                             $ExceptionsTable      = Get-CIPPTable -TableName 'CveExceptions'
@@ -2264,7 +2264,7 @@ function Invoke-NinjaOneTenantSync {
                                 Write-LogMessage -API 'NinjaOneSync' -tenant $TenantFilter -message 'CVE sync — failed to generate CSV bytes' -sev 'Warning'
                             }
                         }
-                    }
+                    #}
                 }
             } catch {
                 $ErrorMessage = Get-CippException -Exception $_
