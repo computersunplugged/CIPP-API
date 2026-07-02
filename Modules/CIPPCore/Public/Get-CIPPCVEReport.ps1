@@ -84,12 +84,12 @@ function Get-CIPPCVEReport {
                     softwareName               = $Item.softwareName
                     softwareVendor             = $Item.softwareVendor
                     softwareVersion            = $Item.softwareVersion
-                    registryPaths              = $Item.registryPaths
-                    diskPaths                  = $Item.diskPaths
                     lastUpdated                = $Item.lastUpdated
                     TotalDeviceCount           = 0
                     AffectedTenantsList        = [System.Collections.Generic.List[object]]::new()
                     AffectedDevicesList        = [System.Collections.Generic.List[object]]::new()
+                    DiskPathList               = [System.Collections.Generic.List[object]]::new()
+                    RegistryPathList           = [System.Collections.Generic.List[object]]::new()
                     ExceptionMatchCount        = 0
                     TotalTenantGroupCount      = 0
                     ExceptionSources           = [System.Collections.Generic.HashSet[string]]::new()
@@ -105,9 +105,11 @@ function Get-CIPPCVEReport {
             if ($Item.deviceDetailsJson) {
                 $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
                 foreach ($Dev in $Devices) {
-                    [void]$CveGroup.AffectedDevicesList.Add(@{ deviceName = $Dev.deviceName })
-                    $CveGroup.TotalDeviceCount ++
-                    }
+                        [void]$CveGroup.AffectedDevicesList.Add(@{ deviceName    = $Dev.deviceName })
+                        if($Dev.registryPaths){[void]$CveGroup.RegistryPathList.Add(@{ registryPaths = $Dev.registryPaths })}
+                        if($Dev.diskPaths){[void]$CveGroup.DiskPathList.Add(@{ diskPaths     = $Dev.diskPaths })}
+                        $CveGroup.TotalDeviceCount ++
+                }
             }
         }
 
@@ -135,8 +137,8 @@ function Get-CIPPCVEReport {
                 softwareVersion            = $Target.softwareVersion
                 deviceCount                = $Target.TotalDeviceCount
                 tenantCount                = $Target.TotalTenantGroupCount
-                registryPaths              = $Target.registryPaths
-                diskPaths                  = $Target.diskPaths
+                registryPaths              = $Target.RegistryPathList
+                diskPaths                  = $Target.DiskPathList
                 exceptionStatus            = $ExceptionStatus
                 hasException               = $HasException
                 affectedTenants            = $Target.AffectedTenantsList
