@@ -106,8 +106,10 @@ function Get-CIPPCVEReport {
                 $Devices = ConvertFrom-Json $Item.deviceDetailsJson | Sort-Object -Property deviceName -Unique
                 foreach ($Dev in $Devices) {
                         [void]$CveGroup.AffectedDevicesList.Add(@{ deviceName    = $Dev.deviceName })
-                        if($Dev.registryPaths){[void]$CveGroup.RegistryPathList.Add(@{ registryPaths = $Dev.registryPaths })}
-                        if($Dev.diskPaths){[void]$CveGroup.DiskPathList.Add(@{ diskPaths     = $Dev.diskPaths })}
+                        if($Dev.registryPaths){[void]$CveGroup.RegistryPathList.Add(@{ deviceName = $Dev.deviceName
+                                                                                       registryPaths = $Dev.registryPaths })}
+                        if($Dev.diskPaths){[void]$CveGroup.DiskPathList.Add(@{ deviceName = $Dev.deviceName
+                                                                               diskPaths = $Dev.diskPaths })}
                         $CveGroup.TotalDeviceCount ++
                 }
             }
