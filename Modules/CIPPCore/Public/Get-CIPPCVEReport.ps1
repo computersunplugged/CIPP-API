@@ -30,10 +30,8 @@ function Get-CIPPCVEReport {
         if ($UseReportDB -eq $true){
             $RawCveData    = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
             $AllCachedCves = $RawCveData.Data | ConvertFrom-Json
-            Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message "Cached: $UseReportDB" -sev Info
         } else {
             $AllCachedCves = get-DefenderCVEs -TenantFilter $TenantFilter
-            Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message "Live: $UseReportDB" -sev Info
         }
 
         # Filter results by Tenant
