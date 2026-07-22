@@ -12,24 +12,24 @@ function Invoke-ListCVEManagement {
     $TenantFilter = $Request.Query.tenantFilter
     $UseReportDB = $Request.Query.UseReportDB
 
-        try {
-            if ($UseReportDB -eq 'true'){
-                $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -UseReportDB $UseReportDB -ErrorAction Stop
-            } else {
-                $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -UseReportDB 'false' -ErrorAction Stop
-            }
-            $StatusCode = [HttpStatusCode]::OK
-            $SortedCves = $GraphRequest
-            Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "running cve report" -sev 'info'
-        } catch {
-            Write-Host "Error retrieving CVEs from report database: $($_.Exception.Message)"
-            $StatusCode = [HttpStatusCode]::InternalServerError
-            $GraphRequest = $_.Exception.Message
-            Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "Error retrieving $obtype" -sev 'info'
+    try {
+        if ($UseReportDB -eq 'true') {
+            $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -UseReportDB $UseReportDB -ErrorAction Stop
+        } else {
+            $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -UseReportDB 'false' -ErrorAction Stop
         }
+        $StatusCode = [HttpStatusCode]::OK
+        $SortedCves = $GraphRequest
+        Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "running cve report" -sev 'info'
+    } catch {
+        Write-Host "Error retrieving CVEs from report database: $($_.Exception.Message)"
+        $StatusCode = [HttpStatusCode]::InternalServerError
+        $GraphRequest = $_.Exception.Message
+        Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "Error retrieving CVEs: $GraphRequest" -sev 'info'
+    }
 
-        Return [HttpResponseContext]@{
-        StatusCode = $StatusCode
-        Body       = @($SortedCves | Sort-Object -Property cveId)
-        }
+    Return [HttpResponseContext]@{
+    StatusCode = $StatusCode
+    Body       = @( $SortedCves )
+    }
 }
