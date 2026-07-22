@@ -16,6 +16,7 @@ function Invoke-ListIntuneTemplates {
                 RowKey       = "$($_.name)"
                 PartitionKey = 'IntuneTemplate'
                 GUID         = "$($_.name)"
+                Package      = "$($_.name)"
             }
             Add-CIPPAzDataTableEntity @Table -Entity $Entity -Force
         }
@@ -112,7 +113,7 @@ function Invoke-ListIntuneTemplates {
         if ($Request.query.mode -eq 'Tag') {
             #when the mode is tag, show all the potential tags, return the object with: label: tag, value: tag, count: number of templates with that tag, unique only
             $Templates = @($RawTemplates | Where-Object { $_.Package } | Group-Object -Property Package | ForEach-Object {
-                    $package = $_.Name
+                    $package = $_.Package
                     $packageTemplates = @($_.Group)
                     $templateCount = $packageTemplates.Count
                     [pscustomobject]@{
