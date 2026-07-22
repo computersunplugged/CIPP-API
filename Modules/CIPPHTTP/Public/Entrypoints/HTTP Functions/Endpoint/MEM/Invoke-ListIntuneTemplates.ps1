@@ -122,7 +122,7 @@ function Invoke-ListIntuneTemplates {
                         templateCount = $templateCount
                         templates     = @($packageTemplates | ForEach-Object {
                                 try {
-                                    $Package  = $_.Package
+                                    $Package  = $_.Name
                                     $Source   = $_.Source
                                     $RowKey   = $_.RowKey
                                     $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
