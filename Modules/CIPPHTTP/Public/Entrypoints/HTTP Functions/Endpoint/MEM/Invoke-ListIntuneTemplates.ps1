@@ -32,15 +32,16 @@ function Invoke-ListIntuneTemplates {
     if ($Request.query.View) {
         $Templates = $RawTemplates | ForEach-Object {
             try {
+                $RawData  = $_
                 $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                 $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                 $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
-                $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $_.RowKey -Force
-                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $JSONData.Package -Force
+                $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $RawData.RowKey -Force
+                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $RawData.Package -Force
                 $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
-                $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $JSONData.Source -Force
+                $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $RawData.Source -Force
                 $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
                 $data
             } catch {
@@ -119,14 +120,15 @@ function Invoke-ListIntuneTemplates {
                         templateCount = $templateCount
                         templates     = @($packageTemplates | ForEach-Object {
                                 try {
+                                    $RawData  = $_
                                     $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                                     $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                                     $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                                     $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                                     $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
-                                    $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $_.RowKey -Force
-                                    $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $JSONData.Package -Force
-                                    $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $JSONData.Source -Force
+                                    $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $RawData.RowKey -Force
+                                    $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $RawData.Package -Force
+                                    $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $RawData.Source -Force
                                     $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
                                     $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
                                     $data
