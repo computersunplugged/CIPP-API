@@ -32,11 +32,11 @@ function Invoke-ListIntuneTemplates {
     if ($Request.query.View) {
         $Templates = $RawTemplates | ForEach-Object {
             try {
-                $Package  = $_.Package
-                $Source   = $_.Source
-                $RowKey   = $_.RowKey
                 $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
+                $Package = $_.package
+                $RowKey  = $_.rowKey
+                $Source  = $_.source
                 $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                 $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                 $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
@@ -122,11 +122,11 @@ function Invoke-ListIntuneTemplates {
                         templateCount = $templateCount
                         templates     = @($packageTemplates | ForEach-Object {
                                 try {
-                                    $Package  = $_.Name
-                                    $Source   = $_.Source
-                                    $RowKey   = $_.RowKey
                                     $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                                     $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
+                                    $Package = $packageTemplates.package
+                                    $RowKey  = $packageTemplates.rowKey
+                                    $Source  = $packageTemplates.source
                                     $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                                     $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                                     $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
