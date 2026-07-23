@@ -65,7 +65,7 @@ function Invoke-ListIntuneTemplates {
                         description      = $JSONData.description
                         type             = $JSONData.type
                         GUID             = $Temp.RowKey
-                        package          = $Package
+                        package          = @($Package)
                         isSynced         = (![string]::IsNullOrEmpty($data.SHA))
                         source           = $Temp.Source
                         reusableSettings = $JSONData.ReusableSettings
