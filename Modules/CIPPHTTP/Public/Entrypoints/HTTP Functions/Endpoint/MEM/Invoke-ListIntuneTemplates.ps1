@@ -58,11 +58,11 @@ function Invoke-ListIntuneTemplates {
             $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
 
             [void]$Templates.Add([PSCustomObject]@{
-                        displayName      = $JSONData.Displayname
-                        description      = $JSONData.Description
-                        type             = $JSONData.Type
+                        displayName      = $JSONData.displayName
+                        description      = $JSONData.description
+                        type             = $JSONData.type
                         GUID             = $Temp.RowKey
-                        package          = $Temp.Package
+                        parkage          = $Temp.Package
                         isSynced         = (![string]::IsNullOrEmpty($data.SHA))
                         source           = $Temp.Source
                         reusableSettings = $JSONData.ReusableSettings
