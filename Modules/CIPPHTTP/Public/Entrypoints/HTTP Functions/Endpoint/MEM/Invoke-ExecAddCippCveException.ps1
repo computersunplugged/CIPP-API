@@ -27,7 +27,6 @@ function Invoke-ExecAddCippCveException {
         }
 
         $CveExceptionsTable = Get-CIPPTable -TableName 'CveExceptions'
-        $CveCacheTable      = Get-CIPPTable -TableName 'CveCache'
 
         # Load all existing exceptions for this CVE
         $AllCveExceptions = Get-CIPPAzDataTableEntity @CveExceptionsTable -Filter "PartitionKey eq '$CveId'"
@@ -40,7 +39,7 @@ function Invoke-ExecAddCippCveException {
                 @($TenantFilter)
             }
             'AllAffected' {
-                $RawCveData    = Get-CIPPDbItem -TenantFilter 'allTenants' -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
+                $RawCveData    = Get-CIPPDbItem -TenantFilter 'AllTenants' -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
                 $AffectedEntries = $RawCveData.Data | ConvertFrom-Json | -Filter "PartitionKey eq '$CveId'"
                 @($AffectedEntries | Select-Object -ExpandProperty customerId -Unique)
             }
