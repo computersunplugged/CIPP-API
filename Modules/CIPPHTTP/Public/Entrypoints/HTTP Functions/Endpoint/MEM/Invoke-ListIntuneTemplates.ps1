@@ -54,7 +54,7 @@ function Invoke-ListIntuneTemplates {
         $Templates = [System.Collections.Generic.List[object]]::new()
         foreach ($Temp in $RawTemplates){
 
-            $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
+            $JSONData = $Temp.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
             $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
 
             [void]$Templates.Add([PSCustomObject]@{
