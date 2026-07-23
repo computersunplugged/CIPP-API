@@ -42,7 +42,7 @@ function Invoke-ListIntuneTemplates {
                 $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                 $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
                 $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $RowKey -Force
-                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Package -Force
+                $data | Add-Member -NotePropertyName 'Package' -NotePropertyValue $Package -Force
                 $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
                 $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $Source -Force
                 $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
@@ -125,14 +125,14 @@ function Invoke-ListIntuneTemplates {
                                 try {
                                     $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                                     $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
-                                    $Package = $packageTemplates.package
-                                    $RowKey  = $packageTemplates.rowKey
-                                    $Source  = $packageTemplates.source
+                                    $Package = $_.Package
+                                    $RowKey  = $_.rowKey
+                                    $Source  = $_.source
                                     $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                                     $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                                     $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
                                     $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $RowKey -Force
-                                    $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Package -Force
+                                    $data | Add-Member -NotePropertyName 'Package' -NotePropertyValue $Package -Force
                                     $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $Source -Force
                                     $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
                                     $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
