@@ -12,21 +12,33 @@ function Invoke-ListCVEManagement {
     $TenantFilter = $Request.Query.tenantFilter
     $UseReportDB = $Request.Query.UseReportDB
 
-    try {
-        if ($UseReportDB -eq 'true') {
+    # AllTenants always uses the reporting database - the live path queries a single tenant's
+    # Defender TVM API and cannot fan out across tenants within one request.
+    if ($UseReportDB -eq 'true' -or $TenantFilter -eq 'AllTenants') {
+        try {
+            Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message 'running cached cve report' -sev 'info'
             $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -UseReportDB $true -ErrorAction Stop
-        } else {
-            $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -UseReportDB $false -ErrorAction Stop
+            $StatusCode = [HttpStatusCode]::OK
+        } catch {
+            Write-Host 'Error retrieving CVEs from report database:$($_.Exception.Message)'
+            $StatusCode = [HttpStatusCode]::InternalServerError
+            $GraphRequest = $_.Exception.Message
+            Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message 'Error retrieving CVEs from report database' -sev 'error'
         }
-        $StatusCode = [HttpStatusCode]::OK
-        $SortedCves = $GraphRequest
-        Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "running cve report" -sev 'info'
-    } catch {
-        Write-Host "Error retrieving CVEs from report database: $($_.Exception.Message)"
-        $StatusCode = [HttpStatusCode]::InternalServerError
-        $GraphRequest = $_.Exception.Message
-        Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message "Error retrieving CVEs: $GraphRequest" -sev 'info'
+    } else {
+        try {
+            Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message 'running live cve report' -sev 'info'
+            $GraphRequest = Get-CIPPCVEReport -TenantFilter $TenantFilter -UseReportDB $false -ErrorAction Stop
+            $StatusCode = [HttpStatusCode]::OK
+        } catch {
+            Write-Host 'Error retrieving live CVEs: $($_.Exception.Message)'
+            $StatusCode = [HttpStatusCode]::InternalServerError
+            $GraphRequest = $_.Exception.Message
+            Write-LogMessage -API 'ListCVEManagement' -tenant $TenantFilter -message 'Error retrieving Live CVEs' -sev 'error'
+        }
     }
+
+    $SortedCves = $GraphRequest
 
     Return [HttpResponseContext]@{
     StatusCode = $StatusCode
