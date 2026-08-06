@@ -98,7 +98,7 @@ function Invoke-ListIntuneTemplates {
                     if (-not ($Usage | Where-Object { $_.templateId -eq $U.templateId })) {
                         $Entry = $U | Select-Object *
                         $Entry | Add-Member -NotePropertyName 'matchType' -NotePropertyValue 'package' -Force
-                        $Entry | Add-Member -NotePropertyName 'package' -NotePropertyValue $Tpl.package -Force
+                        $Entry | Add-Member -NotePropertyName 'packageUsed' -NotePropertyValue $Tpl.package -Force
                         $Usage.Add($Entry)
                     }
                 }
