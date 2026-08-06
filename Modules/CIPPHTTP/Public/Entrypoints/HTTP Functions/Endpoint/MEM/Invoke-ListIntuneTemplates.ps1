@@ -7,7 +7,7 @@ function Invoke-ListIntuneTemplates {
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
-    $Table = Get-CippTable -TableName 'templates'
+    $Table = Get-CippTable -tablename 'templates'
     $Imported = Get-CIPPAzDataTableEntity @Table -Filter "PartitionKey eq 'settings'"
     if ($Imported.IntuneTemplate -ne $true) {
         $Templates = Get-ChildItem (Join-Path $env:CIPPRootPath 'Config\*.IntuneTemplate.json') | ForEach-Object {
@@ -16,7 +16,6 @@ function Invoke-ListIntuneTemplates {
                 RowKey       = "$($_.name)"
                 PartitionKey = 'IntuneTemplate'
                 GUID         = "$($_.name)"
-                Package      = "$($_.name)"
             }
             Add-CIPPAzDataTableEntity @Table -Entity $Entity -Force
         }
@@ -27,50 +26,28 @@ function Invoke-ListIntuneTemplates {
         } -Force
     }
     #List new policies
-    $Table = Get-CippTable -TableName 'templates'
+    $Table = Get-CippTable -tablename 'templates'
     $Filter = "PartitionKey eq 'IntuneTemplate'"
     $RawTemplates = (Get-CIPPAzDataTableEntity @Table -Filter $Filter)
     if ($Request.query.View) {
-        <#$Templates = $RawTemplates | ForEach-Object {
+        $Templates = $RawTemplates | ForEach-Object {
             try {
                 $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
-                $Package = $_.package
-                $RowKey  = $_.rowKey
-                $Source  = $_.source
                 $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                 $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                 $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
-                $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $RowKey -Force
-                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Package -Force
+                $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $_.RowKey -Force
+                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $_.Package -Force
                 $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
-                $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $Source -Force
+                $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $_.Source -Force
                 $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
                 $data
             } catch {
 
             }
-            #>
-        $Templates = [System.Collections.Generic.List[object]]::new()
-        foreach ($Temp in $RawTemplates){
 
-            $JSONData = $Temp.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
-            $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
-
-            [void]$Templates.Add([PSCustomObject]@{
-                        displayName      = $JSONData.displayName
-                        description      = $JSONData.description
-                        type             = $JSONData.type
-                        GUID             = $Temp.RowKey
-                        package          = $Temp.Package
-                        isSynced         = (![string]::IsNullOrEmpty($data.SHA))
-                        source           = $Temp.Source
-                        reusableSettings = $JSONData.ReusableSettings
-            })
-        }
-    #}
-
-        #} | Sort-Object -Property displayName
+        } | Sort-Object -Property displayName
 
         # Build a lookup of which standards templates reference each Intune template (by GUID or package)
         $UsageByGuid = @{}
@@ -132,7 +109,7 @@ function Invoke-ListIntuneTemplates {
         if ($Request.query.mode -eq 'Tag') {
             #when the mode is tag, show all the potential tags, return the object with: label: tag, value: tag, count: number of templates with that tag, unique only
             $Templates = @($RawTemplates | Where-Object { $_.Package } | Group-Object -Property Package | ForEach-Object {
-                    $package = $_.Package
+                    $package = $_.Name
                     $packageTemplates = @($_.Group)
                     $templateCount = $packageTemplates.Count
                     [pscustomobject]@{
@@ -144,15 +121,12 @@ function Invoke-ListIntuneTemplates {
                                 try {
                                     $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                                     $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
-                                    $Package = $_.package
-                                    $RowKey  = $_.rowKey
-                                    $Source  = $_.source
                                     $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                                     $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                                     $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
-                                    $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $RowKey -Force
-                                    $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Package -Force
-                                    $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $Source -Force
+                                    $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $_.RowKey -Force
+                                    $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $_.Package -Force
+                                    $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $_.Source -Force
                                     $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
                                     $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
                                     $data
@@ -184,7 +158,7 @@ function Invoke-ListIntuneTemplates {
 
     return ([HttpResponseContext]@{
             StatusCode = [HttpStatusCode]::OK
-            Body       = @($Templates)#ConvertTo-Json -Depth 100 -InputObject @($Templates)
+            Body       = ConvertTo-Json -Depth 100 -InputObject @($Templates)
         })
 
 }
