@@ -30,13 +30,13 @@ function Invoke-ListIntuneTemplates {
     $Filter = "PartitionKey eq 'IntuneTemplate'"
     $RawTemplates = (Get-CIPPAzDataTableEntity @Table -Filter $Filter)
     if ($Request.query.View) {
-        if ($_.Package){
-            $Package = $_.Package
-        } else {
-            $Package = ''
-        }
         $Templates = $RawTemplates | ForEach-Object {
             try {
+                if ($_.Package){
+                    $Package = $_.Package
+                } else {
+                    $Package = ''
+                }
                 $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
