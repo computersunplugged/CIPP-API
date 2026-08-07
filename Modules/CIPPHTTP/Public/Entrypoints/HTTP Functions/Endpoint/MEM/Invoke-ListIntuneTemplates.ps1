@@ -30,6 +30,11 @@ function Invoke-ListIntuneTemplates {
     $Filter = "PartitionKey eq 'IntuneTemplate'"
     $RawTemplates = (Get-CIPPAzDataTableEntity @Table -Filter $Filter)
     if ($Request.query.View) {
+        if ($_.Package){
+            $Package = $_.Package
+        } else {
+            $Package = ''
+        }
         $Templates = $RawTemplates | ForEach-Object {
             try {
                 $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
@@ -38,7 +43,7 @@ function Invoke-ListIntuneTemplates {
                 $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                 $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
                 $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $_.RowKey -Force
-                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $_.Package -Force
+                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Package -Force
                 $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
                 $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $_.Source -Force
                 $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
