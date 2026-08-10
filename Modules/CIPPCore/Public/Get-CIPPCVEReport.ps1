@@ -9,15 +9,11 @@ function Get-CIPPCVEReport {
 
     .PARAMETER TenantFilter
         The tenant to generate the report for, or 'AllTenants'
-    .PARAMETER UseReportDb
-        Use cached results, True or False
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true)]
-        [string]$TenantFilter,
-        [Parameter(Mandatory = $true)]
-        [bool]$UseReportDB
+        [string]$TenantFilter
     )
 
     try {
@@ -26,13 +22,8 @@ function Get-CIPPCVEReport {
         $AllExceptions = Get-CIPPAzDataTableEntity @CveExceptionsTable
         $ExceptionsByCve = @{}
 
-         # Retrieve CVEs from database
-        if ($UseReportDB -eq $true) {
-            $RawCveData    = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
-            $AllCachedCves = $RawCveData.Data | ConvertFrom-Json
-        } else {
-            $AllCachedCves = get-DefenderCVEs -TenantFilter $TenantFilter
-        }
+        $RawCveData = Get-CIPPDbItem -TenantFilter $TenantFilter -Type 'DefenderCVEs' | Where-Object { $_.RowKey -ne 'DefenderCVEs-Count' }
+        $AllCachedCves = $RawCveData.Data | ConvertFrom-Json
 
         # Filter results by Tenant
         $RawCveItems = [System.Collections.Generic.List[object]]::new()
@@ -65,17 +56,12 @@ function Get-CIPPCVEReport {
                 [void]$ExceptionsByCve[$Ex.cveId].Add([PSCustomObject]@{
                         cveId              = $Ex.cveId
                         customerId         = $Ex.customerId
+                        exceptionType      = $Ex.exceptionType
                         exceptionSource    = $Ex.exceptionSource
-                        exceptionType      = @{ customerId = $Ex.customerId
-                                                exceptionType = $Ex.exceptionType }
-                        exceptionComment   = @{ customerId = $Ex.customerId
-                                                exceptionComment = $Ex.exceptionComment }
-                        exceptionCreatedBy = @{ customerId = $Ex.customerId
-                                                exceptionCreatedBy = $Ex.exceptionCreatedBy }
-                        exceptionDate      = @{ customerId = $Ex.customerId
-                                                exceptionDate = $Ex.exceptionReadableDate }
-                        exceptionExpiry    = @{ customerId = $Ex.customerId
-                                                exceptionExpiry = $Ex.exceptionExpiry }
+                        exceptionComment   = $Ex.exceptionComment
+                        exceptionCreatedBy = $Ex.exceptionCreatedBy
+                        exceptionDate      = $Ex.exceptionReadableDate
+                        exceptionExpiry    = $Ex.exceptionExpiry
                     })
             }
         }
@@ -136,44 +122,65 @@ function Get-CIPPCVEReport {
 
         foreach ($CveKey in $CveMasterTable.Keys) {
             $Target = $CveMasterTable[$CveKey]
-            $Exceptions = $ExceptionsByCve[$CveKey]
             $ExceptionStatus = 'None'
             $HasException = $false
+            $Exceptions = @{}
+            $ExceptionType = ''
+            $ExceptionComment = ''
+            $ExceptionCreatedBy = ''
+            $ExceptionDate = ''
+            $ExceptionExpiry = ''
 
-            if ($Exceptions) {
+            if ($ExceptionsByCve.ContainsKey($CveKey)) {
+                $Exceptions = @($ExceptionsByCve[$CveKey])
                 $HasException = $true
-                $ExceptionStatus = if ($Exceptions.customerId -contains 'ALL') { 'All' } else { 'Partial' }
+                $ExceptionStatus = if ($Exceptions.customerId -contains "ALL") { "All" } else { "Partial" }
+                $ExceptionType = @{ customerId = $Exceptions.customerId
+                    exceptionType              = $Exceptions.exceptionType
+                }
+                $ExceptionComment = @{ customerId = $Exceptions.customerId
+                    exceptionComment              = $Exceptions.exceptionComment
+                }
+                $ExceptionCreatedBy = @{ customerId = $Exceptions.customerId
+                    exceptionCreatedBy              = $Exceptions.exceptionCreatedBy
+                }
+                $ExceptionDate = @{ customerId = $Exceptions.customerId
+                    exceptionDate              = $Exceptions.exceptionDate
+                }
+                $ExceptionExpiry = @{ customerId = $Exceptions.customerId
+                    exceptionExpiry              = $Exceptions.exceptionExpiry
+                }
             }
 
             [void]$SortedCves.Add([PSCustomObject]@{
-                cveId                      = $Target.cveId
-                vulnerabilitySeverityLevel = $Target.vulnerabilitySeverityLevel
-                exploitabilityLevel        = $Target.exploitabilityLevel
-                softwareName               = $Target.softwareName
-                softwareVendor             = $Target.softwareVendor
-                softwareVersion            = $Target.softwareVersion
-                deviceCount                = $Target.TotalDeviceCount
-                tenantCount                = $Target.TotalTenantGroupCount
-                registryPaths              = $Target.RegistryPathList
-                diskPaths                  = $Target.DiskPathList
-                exceptionStatus            = $ExceptionStatus
-                hasException               = $HasException
-                affectedTenants            = $Target.AffectedTenantsList
-                affectedDevices            = $Target.AffectedDevicesList
-                exceptionType              = $Exceptions.exceptionType ?? ''
-                exceptionComment           = $Exceptions.exceptionComment ?? ''
-                exceptionCreatedBy         = $Exceptions.exceptionCreatedBy ?? ''
-                exceptionDate              = $Exceptions.exceptionDate ?? ''
-                exceptionExpiry            = $Exceptions.exceptionExpiry ?? ''
-                cacheTimeStamp             = $Target.lastUpdated
-            })
+                    cveId                      = $Target.cveId
+                    vulnerabilitySeverityLevel = $Target.vulnerabilitySeverityLevel
+                    exploitabilityLevel        = $Target.exploitabilityLevel
+                    softwareName               = $Target.softwareName
+                    softwareVendor             = $Target.softwareVendor
+                    softwareVersion            = $Target.softwareVersion
+                    deviceCount                = $Target.TotalDeviceCount
+                    tenantCount                = $Target.TotalTenantGroupCount
+                    registryPaths              = $Target.RegistryPathList
+                    diskPaths                  = $Target.DiskPathList
+                    exceptionStatus            = $ExceptionStatus
+                    hasException               = $HasException
+                    affectedTenants            = $Target.AffectedTenantsList
+                    affectedDevices            = $Target.AffectedDevicesList
+                    exceptionType              = $ExceptionType
+                    exceptionComment           = $ExceptionComment
+                    exceptionCreatedBy         = $ExceptionCreatedBy
+                    exceptionDate              = $ExceptionDate
+                    exceptionExpiry            = $ExceptionExpiry
+                    cacheTimeStamp             = $Target.lastUpdated
+                })
         }
 
         return  $SortedCves | Sort-Object -Property cveId
 
     }
     catch {
-        Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message 'Failed to generate CVE report: $($_.Exception.Message)' -sev 'Error'
+        Write-LogMessage -API 'CVEReport' -tenant $TenantFilter -message "Failed to generate CVE report: $($_.Exception.Message)" -sev Error
         throw
     }
 }
