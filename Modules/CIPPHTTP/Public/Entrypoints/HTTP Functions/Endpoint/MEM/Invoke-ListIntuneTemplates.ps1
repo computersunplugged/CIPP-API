@@ -4,8 +4,6 @@ function Invoke-ListIntuneTemplates {
         Entrypoint,AnyTenant
     .ROLE
         Endpoint.MEM.Read
-    .DESCRIPTION
-        Lists the saved Intune policy templates. On first call the templates shipped with CIPP are imported into the templates table. These are CIPP templates, not a tenant's deployed policies.
     #>
     [CmdletBinding()]
     param($Request, $TriggerMetadata)
@@ -34,13 +32,18 @@ function Invoke-ListIntuneTemplates {
     if ($Request.query.View) {
         $Templates = $RawTemplates | ForEach-Object {
             try {
+                if ($_.Package){
+                    $Package = $_.Package
+                } else {
+                    $Package = ''
+                }
                 $JSONData = $_.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                 $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                 $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
                 $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $_.RowKey -Force
-                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $_.Package -Force
+                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Package -Force
                 $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($_.SHA)) -Force
                 $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $_.Source -Force
                 $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
@@ -100,7 +103,7 @@ function Invoke-ListIntuneTemplates {
                     if (-not ($Usage | Where-Object { $_.templateId -eq $U.templateId })) {
                         $Entry = $U | Select-Object *
                         $Entry | Add-Member -NotePropertyName 'matchType' -NotePropertyValue 'package' -Force
-                        $Entry | Add-Member -NotePropertyName 'package' -NotePropertyValue $Tpl.package -Force
+                        $Entry | Add-Member -NotePropertyName 'packageUsed' -NotePropertyValue $Tpl.package -Force
                         $Usage.Add($Entry)
                     }
                 }
