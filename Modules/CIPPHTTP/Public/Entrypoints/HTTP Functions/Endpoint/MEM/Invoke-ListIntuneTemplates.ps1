@@ -38,11 +38,16 @@ function Invoke-ListIntuneTemplates {
                 $JSONData = $Row.JSON | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 $data = $JSONData.RAWJson | ConvertFrom-Json -Depth 100 -ErrorAction SilentlyContinue
                 if ($null -eq $data) { throw 'RAWJson is empty or not valid JSON' }
+                if ($Row.Package){
+                    $Package = $Row.Package
+                } else {
+                    $Package = ''
+                }
                 $data | Add-Member -NotePropertyName 'displayName' -NotePropertyValue $JSONData.Displayname -Force
                 $data | Add-Member -NotePropertyName 'description' -NotePropertyValue $JSONData.Description -Force
                 $data | Add-Member -NotePropertyName 'Type' -NotePropertyValue $JSONData.Type -Force
                 $data | Add-Member -NotePropertyName 'GUID' -NotePropertyValue $Row.RowKey -Force
-                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Row.Package -Force
+                $data | Add-Member -NotePropertyName 'package' -NotePropertyValue $Package -Force
                 $data | Add-Member -NotePropertyName 'isSynced' -NotePropertyValue (![string]::IsNullOrEmpty($Row.SHA)) -Force
                 $data | Add-Member -NotePropertyName 'source' -NotePropertyValue $Row.Source -Force
                 $data | Add-Member -NotePropertyName 'reusableSettings' -NotePropertyValue $JSONData.ReusableSettings -Force
