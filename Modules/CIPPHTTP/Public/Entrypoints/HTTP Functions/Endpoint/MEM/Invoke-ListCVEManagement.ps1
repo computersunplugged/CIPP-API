@@ -110,12 +110,12 @@ function Invoke-ListCVEManagement {
                         [void]$CveGroup.AffectedDevicesList.Add(@{ deviceName = $Dev.deviceName })
                         if ($Dev.registryPaths) {
                             [void]$CveGroup.RegistryPathList.Add(@{ deviceName = $Dev.deviceName
-                                    registryPaths                              = $Dev.registryPaths
+                                    registryPaths                              = $Dev.registryPaths 
                                 })
                         }
                         if ($Dev.diskPaths) {
                             [void]$CveGroup.DiskPathList.Add(@{ deviceName = $Dev.deviceName
-                                    diskPaths                              = $Dev.diskPaths
+                                    diskPaths                              = $Dev.diskPaths 
                                 })
                         }
                         $CveGroup.TotalDeviceCount ++
@@ -148,19 +148,19 @@ function Invoke-ListCVEManagement {
                     $HasException = $true
                     $ExceptionStatus = if ($Exceptions.customerId -contains 'ALL') { 'All' } else { 'Partial' }
                     $ExceptionType = @{ customerId = $Exceptions.customerId
-                        exceptionType              = $Exceptions.exceptionType
+                        exceptionType              = $Exceptions.exceptionType 
                     }
                     $ExceptionComment = @{ customerId = $Exceptions.customerId
-                        exceptionComment              = $Exceptions.exceptionComment
+                        exceptionComment              = $Exceptions.exceptionComment 
                     }
                     $ExceptionCreatedBy = @{ customerId = $Exceptions.customerId
-                        exceptionCreatedBy              = $Exceptions.exceptionCreatedBy
+                        exceptionCreatedBy              = $Exceptions.exceptionCreatedBy 
                     }
                     $ExceptionDate = @{ customerId = $Exceptions.customerId
-                        exceptionDate              = $Exceptions.exceptionDate
+                        exceptionDate              = $Exceptions.exceptionDate 
                     }
                     $ExceptionExpiry = @{ customerId = $Exceptions.customerId
-                        exceptionExpiry              = $Exceptions.exceptionExpiry
+                        exceptionExpiry              = $Exceptions.exceptionExpiry 
                     }
                 }
 
